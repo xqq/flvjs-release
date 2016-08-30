@@ -7327,6 +7327,7 @@ var FlvPlayer = function () {
         }
 
         this.e = {
+            onvLoadedMetadata: this._onvLoadedMetadata.bind(this),
             onvSeeking: this._onvSeeking.bind(this)
         };
 
@@ -7424,6 +7425,7 @@ var FlvPlayer = function () {
             var _this2 = this;
 
             this._mediaElement = mediaElement;
+            mediaElement.addEventListener('loadedmetadata', this.e.onvLoadedMetadata);
             mediaElement.addEventListener('seeking', this.e.onvSeeking);
 
             this._msectl = new _mseController2.default();
@@ -7444,8 +7446,13 @@ var FlvPlayer = function () {
             this._msectl.attachMediaElement(mediaElement);
 
             if (this._pendingSeekTime != null) {
-                mediaElement.currentTime = this._pendingSeekTime;
-                this._pendingSeekTime = null;
+                try {
+                    mediaElement.currentTime = this._pendingSeekTime;
+                    this._pendingSeekTime = null;
+                } catch (e) {
+                    // IE11 may throw InvalidStateError if readyState === 0
+                    // We can defer set currentTime operation after loadedmetadata
+                }
             }
         }
     }, {
@@ -7453,6 +7460,7 @@ var FlvPlayer = function () {
         value: function detachMediaElement() {
             if (this._mediaElement) {
                 this._msectl.detachMediaElement();
+                this._mediaElement.removeEventListener('loadedmetadata', this.e.onvLoadedMetadata);
                 this._mediaElement.removeEventListener('seeking', this.e.onvSeeking);
                 this._mediaElement = null;
             }
@@ -7763,6 +7771,14 @@ var FlvPlayer = function () {
             }
         }
     }, {
+        key: '_onvLoadedMetadata',
+        value: function _onvLoadedMetadata(e) {
+            if (this._pendingSeekTime != null) {
+                this._mediaElement.currentTime = this._pendingSeekTime;
+                this._pendingSeekTime = null;
+            }
+        }
+    }, {
         key: '_onvSeeking',
         value: function _onvSeeking(e) {
             // handle seeking request from browser's progress bar
@@ -7906,8 +7922,9 @@ var NativePlayer = function () {
             throw new _exception.InvalidArgumentException('NativePlayer(' + mediaDataSource.type + ') doesn\'t support multipart playback!');
         }
 
-        this.e = {};
-        this.e.onvLoadedMetadata = this._onvLoadedMetadata.bind(this);
+        this.e = {
+            onvLoadedMetadata: this._onvLoadedMetadata.bind(this)
+        };
 
         this._pendingSeekTime = null;
         this._statisticsReporter = null;
@@ -7961,8 +7978,13 @@ var NativePlayer = function () {
             mediaElement.addEventListener('loadedmetadata', this.e.onvLoadedMetadata);
 
             if (this._pendingSeekTime != null) {
-                mediaElement.currentTime = this._pendingSeekTime;
-                this._pendingSeekTime = null;
+                try {
+                    mediaElement.currentTime = this._pendingSeekTime;
+                    this._pendingSeekTime = null;
+                } catch (e) {
+                    // IE11 may throw InvalidStateError if readyState === 0
+                    // Defer set currentTime operation after loadedmetadata
+                }
             }
         }
     }, {
@@ -7986,9 +8008,11 @@ var NativePlayer = function () {
                 throw new _exception.IllegalStateException('HTMLMediaElement must be attached before load()!');
             }
             this._mediaElement.src = this._mediaDataSource.url;
+
             if (this._mediaElement.readyState > 0) {
                 this._mediaElement.currentTime = 0;
             }
+
             this._mediaElement.preload = 'auto';
             this._mediaElement.load();
             this._statisticsReporter = window.setInterval(this._reportStatisticsInfo.bind(this), this._config.statisticsInfoReportInterval);
@@ -8018,6 +8042,10 @@ var NativePlayer = function () {
     }, {
         key: '_onvLoadedMetadata',
         value: function _onvLoadedMetadata(e) {
+            if (this._pendingSeekTime != null) {
+                this._mediaElement.currentTime = this._pendingSeekTime;
+                this._pendingSeekTime = null;
+            }
             this._emitter.emit(_playerEvents2.default.MEDIA_INFO, this.mediaInfo);
         }
     }, {
