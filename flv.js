@@ -7521,12 +7521,12 @@ var FlvPlayer = function () {
                 }
             });
             this._transmuxer.on(_transmuxingEvents2.default.LOADING_COMPLETE, function () {
-                _logger2.default.v(_this3.TAG, 'Loading Complete!');
                 _this3._msectl.endOfStream();
                 if (_this3._statisticsReporter != null) {
                     window.clearInterval(_this3._statisticsReporter);
                     _this3._statisticsReporter = null;
                 }
+                _this3._emitter.emit(_playerEvents2.default.LOADING_COMPLETE);
             });
             this._transmuxer.on(_transmuxingEvents2.default.IO_ERROR, function (detail, info) {
                 _this3._emitter.emit(_playerEvents2.default.ERROR, _playerErrors.ErrorTypes.NETWORK_ERROR, detail, info);
@@ -8192,6 +8192,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 var PlayerEvents = {
     ERROR: 'error',
+    LOADING_COMPLETE: 'loading_complete',
     MEDIA_INFO: 'media_info',
     STATISTICS_INFO: 'statistics_info'
 };
