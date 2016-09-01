@@ -2136,9 +2136,11 @@ var MSEController = function () {
                     // remove all sourcebuffers
                     var sb = this._sourceBuffers[type];
                     if (sb) {
-                        ms.removeSourceBuffer(sb);
-                        sb.removeEventListener('error', this.e.onSourceBufferError);
-                        sb.removeEventListener('updateend', this.e.onSourceBufferUpdateEnd);
+                        if (ms.readyState !== 'closed') {
+                            ms.removeSourceBuffer(sb);
+                            sb.removeEventListener('error', this.e.onSourceBufferError);
+                            sb.removeEventListener('updateend', this.e.onSourceBufferUpdateEnd);
+                        }
                         this._mimeTypes[type] = null;
                         this._sourceBuffers[type] = null;
                     }
@@ -2254,6 +2256,11 @@ var MSEController = function () {
                 // pending segments should be discard
                 var ps = this._pendingSegments[type];
                 ps.splice(0, ps.length);
+
+                if (this._mediaSource.readyState === 'closed') {
+                    // Parent MediaSource object has been detached from HTMLMediaElement
+                    continue;
+                }
 
                 // record ranges to be remove from SourceBuffer
                 for (var i = 0; i < sb.buffered.length; i++) {
