@@ -2522,6 +2522,7 @@ var Transmuxer = function () {
             ctl.on(_transmuxingEvents2.default.INIT_SEGMENT, this._onInitSegment.bind(this));
             ctl.on(_transmuxingEvents2.default.MEDIA_SEGMENT, this._onMediaSegment.bind(this));
             ctl.on(_transmuxingEvents2.default.LOADING_COMPLETE, this._onLoadingComplete.bind(this));
+            ctl.on(_transmuxingEvents2.default.RECOVERED_EARLY_EOF, this._onRecoveredEarlyEof.bind(this));
             ctl.on(_transmuxingEvents2.default.MEDIA_INFO, this._onMediaInfo.bind(this));
             ctl.on(_transmuxingEvents2.default.STATISTICS_INFO, this._onStatisticsInfo.bind(this));
             ctl.on(_transmuxingEvents2.default.RECOMMEND_SEEKPOINT, this._onRecommendSeekpoint.bind(this));
@@ -2634,48 +2635,57 @@ var Transmuxer = function () {
             });
         }
     }, {
-        key: '_onMediaInfo',
-        value: function _onMediaInfo(mediaInfo) {
+        key: '_onRecoveredEarlyEof',
+        value: function _onRecoveredEarlyEof() {
             var _this4 = this;
 
             Promise.resolve().then(function () {
-                _this4._emitter.emit(_transmuxingEvents2.default.MEDIA_INFO, mediaInfo);
+                _this4._emitter.emit(_transmuxingEvents2.default.RECOVERED_EARLY_EOF);
+            });
+        }
+    }, {
+        key: '_onMediaInfo',
+        value: function _onMediaInfo(mediaInfo) {
+            var _this5 = this;
+
+            Promise.resolve().then(function () {
+                _this5._emitter.emit(_transmuxingEvents2.default.MEDIA_INFO, mediaInfo);
             });
         }
     }, {
         key: '_onStatisticsInfo',
         value: function _onStatisticsInfo(statisticsInfo) {
-            var _this5 = this;
+            var _this6 = this;
 
             Promise.resolve().then(function () {
-                _this5._emitter.emit(_transmuxingEvents2.default.STATISTICS_INFO, statisticsInfo);
+                _this6._emitter.emit(_transmuxingEvents2.default.STATISTICS_INFO, statisticsInfo);
             });
         }
     }, {
         key: '_onIOError',
         value: function _onIOError(type, info) {
-            var _this6 = this;
+            var _this7 = this;
 
             Promise.resolve().then(function () {
-                _this6._emitter.emit(_transmuxingEvents2.default.IO_ERROR, type, info);
+                _this7._emitter.emit(_transmuxingEvents2.default.IO_ERROR, type, info);
             });
         }
     }, {
         key: '_onDemuxError',
         value: function _onDemuxError(type, info) {
-            var _this7 = this;
+            var _this8 = this;
 
             Promise.resolve().then(function () {
-                _this7._emitter.emit(_transmuxingEvents2.default.DEMUX_ERROR, type, info);
+                _this8._emitter.emit(_transmuxingEvents2.default.DEMUX_ERROR, type, info);
             });
         }
     }, {
         key: '_onRecommendSeekpoint',
         value: function _onRecommendSeekpoint(milliseconds) {
-            var _this8 = this;
+            var _this9 = this;
 
             Promise.resolve().then(function () {
-                _this8._emitter.emit(_transmuxingEvents2.default.RECOMMEND_SEEKPOINT, milliseconds);
+                _this9._emitter.emit(_transmuxingEvents2.default.RECOMMEND_SEEKPOINT, milliseconds);
             });
         }
     }, {
@@ -2704,6 +2714,7 @@ var Transmuxer = function () {
                     this._emitter.emit(message.msg, data.type, data.data);
                     break;
                 case _transmuxingEvents2.default.LOADING_COMPLETE:
+                case _transmuxingEvents2.default.RECOVERED_EARLY_EOF:
                     this._emitter.emit(message.msg);
                     break;
                 case _transmuxingEvents2.default.MEDIA_INFO:
@@ -2877,6 +2888,7 @@ var TransmuxingController = function () {
             ioctl.onError = this._onIOException.bind(this);
             ioctl.onSeeked = this._onIOSeeked.bind(this);
             ioctl.onComplete = this._onIOComplete.bind(this);
+            ioctl.onRecoveredEarlyEof = this._onIORecoveredEarlyEof.bind(this);
 
             if (optionalFrom) {
                 this._demuxer.bindDataSource(this._ioctl);
@@ -3070,6 +3082,11 @@ var TransmuxingController = function () {
             }
         }
     }, {
+        key: '_onIORecoveredEarlyEof',
+        value: function _onIORecoveredEarlyEof() {
+            this._emitter.emit(_transmuxingEvents2.default.RECOVERED_EARLY_EOF);
+        }
+    }, {
         key: '_onIOException',
         value: function _onIOException(type, info) {
             _logger2.default.e(this.TAG, 'IOException: type = ' + type + ', code = ' + info.code + ', msg = ' + info.msg);
@@ -3129,6 +3146,7 @@ var TransmuxingEvents = {
     INIT_SEGMENT: 'init_segment',
     MEDIA_SEGMENT: 'media_segment',
     LOADING_COMPLETE: 'loading_complete',
+    RECOVERED_EARLY_EOF: 'recovered_early_eof',
     MEDIA_INFO: 'media_info',
     STATISTICS_INFO: 'statistics_info',
     RECOMMEND_SEEKPOINT: 'recommend_seekpoint'
@@ -3194,6 +3212,7 @@ var TransmuxingWorker = function TransmuxingWorker(self) {
                 controller.on(_transmuxingEvents2.default.INIT_SEGMENT, onInitSegment.bind(this));
                 controller.on(_transmuxingEvents2.default.MEDIA_SEGMENT, onMediaSegment.bind(this));
                 controller.on(_transmuxingEvents2.default.LOADING_COMPLETE, onLoadingComplete.bind(this));
+                controller.on(_transmuxingEvents2.default.RECOVERED_EARLY_EOF, onRecoveredEarlyEof.bind(this));
                 controller.on(_transmuxingEvents2.default.MEDIA_INFO, onMediaInfo.bind(this));
                 controller.on(_transmuxingEvents2.default.STATISTICS_INFO, onStatisticsInfo.bind(this));
                 controller.on(_transmuxingEvents2.default.RECOMMEND_SEEKPOINT, onRecommendSeekpoint.bind(this));
@@ -3251,6 +3270,13 @@ var TransmuxingWorker = function TransmuxingWorker(self) {
     function onLoadingComplete() {
         var obj = {
             msg: _transmuxingEvents2.default.LOADING_COMPLETE
+        };
+        self.postMessage(obj);
+    }
+
+    function onRecoveredEarlyEof() {
+        var obj = {
+            msg: _transmuxingEvents2.default.RECOVERED_EARLY_EOF
         };
         self.postMessage(obj);
     }
@@ -5369,6 +5395,8 @@ var IOController = function () {
         this._speedSampler = new _speedSampler2.default();
         this._speedNormalizeList = [64, 128, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096];
 
+        this._isEarlyEofReconnecting = false;
+
         this._paused = false;
         this._resumeFrom = 0;
 
@@ -5376,6 +5404,7 @@ var IOController = function () {
         this._onSeeked = null;
         this._onError = null;
         this._onComplete = null;
+        this._onRecoveredEarlyEof = null;
 
         this._selectSeekHandler();
         this._selectLoader();
@@ -5398,10 +5427,13 @@ var IOController = function () {
             this._progressRanges = null;
             this._speedSampler = null;
 
+            this._isEarlyEofReconnecting = false;
+
             this._onDataArrival = null;
             this._onSeeked = null;
             this._onError = null;
             this._onComplete = null;
+            this._onRecoveredEarlyEof = null;
 
             this._extraData = null;
         }
@@ -5754,6 +5786,13 @@ var IOController = function () {
             if (this._paused) {
                 return;
             }
+            if (this._isEarlyEofReconnecting) {
+                // Auto-reconnect for EarlyEof succeed, notify to upper-layer by callback
+                this._isEarlyEofReconnecting = false;
+                if (this._onRecoveredEarlyEof) {
+                    this._onRecoveredEarlyEof();
+                }
+            }
 
             this._speedSampler.addBytes(chunk.byteLength);
 
@@ -5988,12 +6027,19 @@ var IOController = function () {
 
             this._flushStashBuffer(false);
 
+            if (this._isEarlyEofReconnecting) {
+                // Auto-reconnect for EarlyEof failed, throw UnrecoverableEarlyEof error to upper-layer
+                this._isEarlyEofReconnecting = false;
+                type = _loader.LoaderErrors.UNRECOVERABLE_EARLY_EOF;
+            }
+
             switch (type) {
                 case _loader.LoaderErrors.EARLY_EOF:
                     {
                         if (!this._config.isLive) {
                             // Do internal http reconnect if not live stream
                             _logger2.default.w(this.TAG, 'Connection lost, trying reconnect...');
+                            this._isEarlyEofReconnecting = true;
                             var current = this._currentRange;
                             var next = this._mergeRanges(current.from, current.to);
                             if (next.from !== -1) {
@@ -6001,9 +6047,11 @@ var IOController = function () {
                             }
                             return;
                         }
-                        // live stream: throw EarlyEof error to upper-layer
+                        // live stream: throw UnrecoverableEarlyEof error to upper-layer
+                        type = _loader.LoaderErrors.UNRECOVERABLE_EARLY_EOF;
                         break;
                     }
+                case _loader.LoaderErrors.UNRECOVERABLE_EARLY_EOF:
                 case _loader.LoaderErrors.CONNECTING_TIMEOUT:
                 case _loader.LoaderErrors.HTTP_STATUS_CODE_INVALID:
                 case _loader.LoaderErrors.EXCEPTION:
@@ -6071,6 +6119,14 @@ var IOController = function () {
             this._onComplete = callback;
         }
     }, {
+        key: 'onRecoveredEarlyEof',
+        get: function get() {
+            return this._onRecoveredEarlyEof;
+        },
+        set: function set(callback) {
+            this._onRecoveredEarlyEof = callback;
+        }
+    }, {
         key: 'currentUrl',
         get: function get() {
             return this._dataSource.url;
@@ -6126,7 +6182,8 @@ var LoaderErrors = exports.LoaderErrors = {
     EXCEPTION: 'Exception',
     HTTP_STATUS_CODE_INVALID: 'HttpStatusCodeInvalid',
     CONNECTING_TIMEOUT: 'ConnectingTimeout',
-    EARLY_EOF: 'EarlyEof'
+    EARLY_EOF: 'EarlyEof',
+    UNRECOVERABLE_EARLY_EOF: 'UnrecoverableEarlyEof'
 };
 
 /* Loader has callbacks which have following prototypes:
@@ -7535,6 +7592,9 @@ var FlvPlayer = function () {
                 }
                 _this3._emitter.emit(_playerEvents2.default.LOADING_COMPLETE);
             });
+            this._transmuxer.on(_transmuxingEvents2.default.RECOVERED_EARLY_EOF, function () {
+                _this3._emitter.emit(_playerEvents2.default.RECOVERED_EARLY_EOF);
+            });
             this._transmuxer.on(_transmuxingEvents2.default.IO_ERROR, function (detail, info) {
                 _this3._emitter.emit(_playerEvents2.default.ERROR, _playerErrors.ErrorTypes.NETWORK_ERROR, detail, info);
             });
@@ -8182,7 +8242,7 @@ var ErrorDetails = exports.ErrorDetails = {
     NETWORK_EXCEPTION: _loader.LoaderErrors.EXCEPTION,
     NETWORK_STATUS_CODE_INVALID: _loader.LoaderErrors.HTTP_STATUS_CODE_INVALID,
     NETWORK_TIMEOUT: _loader.LoaderErrors.CONNECTING_TIMEOUT,
-    NETWORK_EARLY_EOF: _loader.LoaderErrors.EARLY_EOF,
+    NETWORK_UNRECOVERABLE_EARLY_EOF: _loader.LoaderErrors.UNRECOVERABLE_EARLY_EOF,
 
     MEDIA_MSE_ERROR: 'MediaMSEError',
 
@@ -8200,6 +8260,7 @@ Object.defineProperty(exports, "__esModule", {
 var PlayerEvents = {
     ERROR: 'error',
     LOADING_COMPLETE: 'loading_complete',
+    RECOVERED_EARLY_EOF: 'recovered_early_eof',
     MEDIA_INFO: 'media_info',
     STATISTICS_INFO: 'statistics_info'
 };
