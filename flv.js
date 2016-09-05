@@ -4434,8 +4434,8 @@ var FlvDemuxer = function () {
                 offset += len;
 
                 var config = _spsParser2.default.parseSPS(sps);
-                meta.width = config.codec_size.width;
-                meta.height = config.codec_size.height;
+                meta.width = config.present_size.width;
+                meta.height = config.present_size.height;
 
                 meta.profile = config.profile_string;
                 meta.level = config.level_string;
@@ -4464,8 +4464,8 @@ var FlvDemuxer = function () {
                 meta.codec = codecString;
 
                 var mi = this._mediaInfo;
-                mi.width = meta.width;
-                mi.height = meta.height;
+                mi.width = config.codec_size.width;
+                mi.height = config.codec_size.height;
                 mi.fps = meta.frameRate.fps;
                 mi.profile = meta.profile;
                 mi.level = meta.level;
