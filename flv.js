@@ -8873,6 +8873,8 @@ var MP4Remuxer = function () {
     _createClass(MP4Remuxer, [{
         key: 'destroy',
         value: function destroy() {
+            this._dtsBase = -1;
+            this._dtsBaseInited = false;
             this._audioMeta = null;
             this._videoMeta = null;
             this._audioSegmentInfoList.clear();
@@ -8916,6 +8918,9 @@ var MP4Remuxer = function () {
             if (!this._onMediaSegment) {
                 throw new _exception.IllegalStateException('MP4Remuxer: onMediaSegment callback must be specificed!');
             }
+            if (!this._dtsBaseInited) {
+                this._calculateDtsBase(audioTrack, videoTrack);
+            }
             this._remuxVideo(videoTrack);
             this._remuxAudio(audioTrack);
         }
@@ -8946,6 +8951,23 @@ var MP4Remuxer = function () {
             });
         }
     }, {
+        key: '_calculateDtsBase',
+        value: function _calculateDtsBase(audioTrack, videoTrack) {
+            if (this._dtsBaseInited) {
+                return;
+            }
+
+            if (audioTrack.samples && audioTrack.samples.length) {
+                this._audioDtsBase = audioTrack.samples[0].dts;
+            }
+            if (videoTrack.samples && videoTrack.samples.length) {
+                this._videoDtsBase = videoTrack.samples[0].dts;
+            }
+
+            this._dtsBase = Math.min(this._audioDtsBase, this._videoDtsBase);
+            this._dtsBaseInited = true;
+        }
+    }, {
         key: '_remuxAudio',
         value: function _remuxAudio(audioTrack) {
             var track = audioTrack;
@@ -8960,16 +8982,6 @@ var MP4Remuxer = function () {
 
             if (!samples || samples.length === 0) {
                 return;
-            }
-
-            if (!this._dtsBaseInited) {
-                this._audioDtsBase = samples[0].dts;
-                if (this._audioDtsBase === Infinity || this._videoDtsBase === Infinity) {
-                    this._dtsBase = 0;
-                } else {
-                    this._dtsBase = Math.min(this._audioDtsBase, this._videoDtsBase);
-                    this._dtsBaseInited = true;
-                }
             }
 
             var bytes = 8 + track.length;
@@ -9167,16 +9179,6 @@ var MP4Remuxer = function () {
 
             if (!samples || samples.length === 0) {
                 return;
-            }
-
-            if (!this._dtsBaseInited) {
-                this._videoDtsBase = samples[0].dts;
-                if (this._audioDtsBase === Infinity || this._videoDtsBase === Infinity) {
-                    this._dtsBase = 0;
-                } else {
-                    this._dtsBase = Math.min(this._audioDtsBase, this._videoDtsBase);
-                    this._dtsBaseInited = true;
-                }
             }
 
             var bytes = 8 + videoTrack.length;
