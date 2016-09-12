@@ -7621,7 +7621,7 @@ var FlvPlayer = function () {
             var directSeekBegin = false;
             var directSeekBeginTime = 0;
 
-            if (seconds < 1.0) {
+            if (seconds < 1.0 && this._mediaElement.buffered.length > 0) {
                 var videoBeginTime = this._mediaElement.buffered.start(0);
                 if (videoBeginTime < 1.0 && seconds < videoBeginTime) {
                     directSeekBegin = true;
@@ -7710,7 +7710,7 @@ var FlvPlayer = function () {
                 return;
             }
 
-            if (target < 1.0) {
+            if (target < 1.0 && this._mediaElement.buffered.length > 0) {
                 // seek to video begin, set currentTime directly if beginPTS buffered
                 var videoBeginTime = this._mediaElement.buffered.start(0);
                 if (videoBeginTime < 1.0 && target < videoBeginTime) {
