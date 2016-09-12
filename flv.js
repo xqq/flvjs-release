@@ -5384,12 +5384,13 @@ var IOController = function () {
         this._loader = null;
         this._loaderClass = null;
         this._seekHandler = null;
+
         this._dataSource = dataSource;
         this._refTotalLength = dataSource.filesize ? dataSource.filesize : null;
         this._totalLength = this._refTotalLength;
         this._fullRequestFlag = false;
         this._currentRange = null;
-        this._progressRanges = [];
+
         this._speed = 0;
         this._speedNormalized = 0;
         this._speedSampler = new _speedSampler2.default();
@@ -5424,7 +5425,6 @@ var IOController = function () {
             this._stashBuffer = null;
             this._stashUsed = this._stashSize = this._bufferSize = this._stashByteStart = 0;
             this._currentRange = null;
-            this._progressRanges = null;
             this._speedSampler = null;
 
             this._isEarlyEofReconnecting = false;
@@ -5504,10 +5504,10 @@ var IOController = function () {
                 this._currentRange.from = optionalFrom;
             }
 
-            this._progressRanges = [];
-            this._progressRanges.push(this._currentRange);
             this._speedSampler.reset();
-            this._fullRequestFlag = true;
+            if (!optionalFrom) {
+                this._fullRequestFlag = true;
+            }
 
             this._loader.open(this._dataSource, Object.assign({}, this._currentRange));
         }
@@ -5515,7 +5515,6 @@ var IOController = function () {
         key: 'abort',
         value: function abort() {
             this._loader.abort();
-            this._mergeRanges(this._currentRange.from, this._currentRange.to);
 
             if (this._paused) {
                 this._paused = false;
@@ -5527,7 +5526,6 @@ var IOController = function () {
         value: function pause() {
             if (this.isWorking()) {
                 this._loader.abort();
-                this._mergeRanges(this._currentRange.from, this._currentRange.to);
 
                 if (this._stashUsed !== 0) {
                     this._resumeFrom = this._stashByteStart;
@@ -5547,47 +5545,16 @@ var IOController = function () {
                 this._paused = false;
                 var bytes = this._resumeFrom;
                 this._resumeFrom = 0;
-                this._currentRange = { from: 0, to: -1 };
-                this._progressRanges = [];
-                this._internalSeek(bytes, true, false);
+                this._internalSeek(bytes, true);
             }
         }
     }, {
         key: 'seek',
         value: function seek(bytes) {
             this._paused = false;
-            this._currentRange = { from: 0, to: -1 };
-            this._progressRanges = [];
             this._stashUsed = 0;
             this._stashByteStart = 0;
-            this._internalSeek(bytes, true, false);
-        }
-    }, {
-        key: 'getCurrentWorkingRange',
-        value: function getCurrentWorkingRange() {
-            return Object.assign({}, this._currentRange);
-        }
-    }, {
-        key: 'searchRangeContains',
-        value: function searchRangeContains(bytes) {
-            var ranges = this._progressRanges;
-
-            for (var i = 0; i < ranges.length; i++) {
-                var range = ranges[i];
-                if (range.from <= bytes && bytes < range.to) {
-                    return range;
-                }
-            }
-            return null;
-        }
-    }, {
-        key: 'continueLoadRange',
-        value: function continueLoadRange(range) {
-            if (range != null) {
-                if (this._totalLength === null || this._totalLength !== null && range.to < this._totalLength - 1) {
-                    this._internalSeek(range.to + 1, true, true);
-                }
-            }
+            this._internalSeek(bytes, true);
         }
 
         /**
@@ -5595,79 +5562,23 @@ var IOController = function () {
          * However, stash data shouldn't be dropped if seeking requested from http reconnection
          *
          * @dropUnconsumed: Ignore and discard all unconsumed data in stash buffer
-         * @doFlushRanges: Flush/Remove all buffered ranges after seekpoint
          */
 
     }, {
         key: '_internalSeek',
-        value: function _internalSeek(bytes, dropUnconsumed, doFlushRanges) {
+        value: function _internalSeek(bytes, dropUnconsumed) {
             if (this._loader.isWorking()) {
                 this._loader.abort();
             }
 
-            if (doFlushRanges && bytes <= this._stashByteStart + this._stashUsed) {
-                // current buffering position must be discard. Drop all stash data
-                if (this._stashUsed !== 0) {
-                    this._currentRange.to = this._stashByteStart - 1;
-                }
-                this._stashUsed = 0;
-                this._stashByteStart = 0;
-            } else {
-                // dispatch & flush stash buffer before seek
-                var remain = this._flushStashBuffer(dropUnconsumed);
-                if (remain) {
-                    this._currentRange.to -= remain;
-                }
-            }
+            // dispatch & flush stash buffer before seek
+            this._flushStashBuffer(dropUnconsumed);
 
             this._loader.destroy();
             this._loader = null;
 
-            var ranges = this._progressRanges;
             var requestRange = { from: bytes, to: -1 };
-            var bufferedArea = false;
-            var insertIndex = 0;
-
-            if (doFlushRanges) {
-                for (var i = 0; i < ranges.length; i++) {
-                    if (ranges[i].from >= bytes) {
-                        ranges.splice(i, ranges.length - i);
-                        break;
-                    } else if (ranges[i].to >= bytes) {
-                        ranges[i].to = bytes - 1;
-                        ranges.splice(i + 1, ranges.length - i - 1);
-                        break;
-                    }
-                }
-            }
-
-            this._mergeRanges(this._currentRange.from, this._currentRange.to);
-
-            for (var _i = 0; _i < ranges.length; _i++) {
-                if (bytes >= ranges[_i].from && bytes <= ranges[_i].to) {
-                    bufferedArea = true;
-                    break;
-                }
-
-                if (_i === ranges.length - 1) {
-                    insertIndex = ranges.length;
-                    break;
-                }
-
-                if (bytes > ranges[_i].to && bytes < ranges[_i + 1].from) {
-                    requestRange.to = ranges[_i + 1].from - 1;
-                    insertIndex = _i + 1;
-                    break;
-                }
-            }
-
-            if (bufferedArea) {
-                // TODO: allow re-load buffered area
-                _logger2.default.w(this.TAG, 'Seek target position has been buffered!');
-            }
-
             this._currentRange = { from: requestRange.from, to: -1 };
-            ranges.splice(insertIndex, 0, this._currentRange);
 
             this._speed = 0;
             this._speedSampler.reset();
@@ -5688,7 +5599,7 @@ var IOController = function () {
 
             this._dataSource.url = url;
 
-            // TODO: reconnect with new url
+            // TODO: replace with new url
         }
     }, {
         key: '_expandBuffer',
@@ -5745,12 +5656,17 @@ var IOController = function () {
         value: function _adjustStashSize(normalized) {
             var stashSizeKB = 0;
 
-            if (normalized < 512) {
+            if (this._config.isLive) {
+                // live stream: always use single normalized speed for size of stashSizeKB
                 stashSizeKB = normalized;
-            } else if (normalized >= 512 && normalized <= 1024) {
-                stashSizeKB = Math.floor(normalized * 1.5);
             } else {
-                stashSizeKB = normalized * 2;
+                if (normalized < 512) {
+                    stashSizeKB = normalized;
+                } else if (normalized >= 512 && normalized <= 1024) {
+                    stashSizeKB = Math.floor(normalized * 1.5);
+                } else {
+                    stashSizeKB = normalized * 2;
+                }
             }
 
             if (stashSizeKB > 8192) {
@@ -5925,99 +5841,14 @@ var IOController = function () {
             }
             return 0;
         }
-
-        /**
-         * @return next load range
-         */
-
-    }, {
-        key: '_mergeRanges',
-        value: function _mergeRanges(from, to) {
-            var ranges = this._progressRanges;
-            var length = ranges.length;
-            var next = { from: -1, to: -1 };
-
-            var backup = Object.assign({}, this._currentRange);
-
-            // left endpoint merge
-            for (var i = 0; i < length; i++) {
-                if (ranges[i].from === from && ranges[i].to <= to) {
-                    ranges[i].to = to;
-                    if (i > 0 && ranges[i - 1].to + 1 === ranges[i].from) {
-                        from = ranges[i - 1].from;
-                        ranges[i - 1].to = ranges[i].to;
-                        ranges.splice(i, 1);
-                        length--;
-                    }
-                    break;
-                }
-            }
-
-            // right endpoint merge
-            for (var _i2 = 0; _i2 < length; _i2++) {
-                if (ranges[_i2].from === from && ranges[_i2].to === to) {
-                    if (_i2 === length - 1) {
-                        // latest range
-                        // +1s
-                        if (this._totalLength && ranges[_i2].to + 1 < this._totalLength) {
-                            next.from = ranges[_i2].to + 1;
-                            next.to = -1;
-                        }
-                    } else if (to + 1 === ranges[_i2 + 1].from) {
-                        // Merge connected ranges
-                        ranges[_i2].to = ranges[_i2 + 1].to;
-                        ranges.splice(_i2 + 1, 1);
-                        length--;
-                        if (_i2 === length - 1) {
-                            // latest range
-                            if (this._totalLength && ranges[_i2].to + 1 < this._totalLength) {
-                                next.from = ranges[_i2].to + 1;
-                                next.to = -1;
-                            }
-                        } else {
-                            if (ranges[_i2].to < ranges[_i2 + 1].from - 1) {
-                                next.from = ranges[_i2].to + 1;
-                                next.to = ranges[_i2 + 1].from - 1;
-                            }
-                        }
-                    }
-                    break;
-                }
-            }
-
-            // correct this._currentRange
-            var corrected = false;
-            length = this._progressRanges.length;
-            for (var _i3 = 0; _i3 < length; _i3++) {
-                var range = this._progressRanges[_i3];
-                if (range.from <= backup.from && backup.to <= range.to && !(range.from === backup.from && range.to === backup.to)) {
-                    corrected = true;
-                    this._currentRange = range;
-                    break;
-                }
-            }
-
-            if (!corrected) {
-                this._currentRange = backup;
-            }
-
-            return next;
-        }
     }, {
         key: '_onLoaderComplete',
         value: function _onLoaderComplete(from, to) {
             // Force-flush stash buffer, and drop unconsumed data
             this._flushStashBuffer(true);
 
-            var next = this._mergeRanges(from, to);
-
-            // continue loading from appropriate position
-            if (next.from !== -1) {
-                this._internalSeek(next.from, true, false);
-            } else {
-                if (this._onComplete) {
-                    this._onComplete(this._extraData);
-                }
+            if (this._onComplete) {
+                this._onComplete(this._extraData);
             }
         }
     }, {
@@ -6038,14 +5869,16 @@ var IOController = function () {
                     {
                         if (!this._config.isLive) {
                             // Do internal http reconnect if not live stream
-                            _logger2.default.w(this.TAG, 'Connection lost, trying reconnect...');
-                            this._isEarlyEofReconnecting = true;
-                            var current = this._currentRange;
-                            var next = this._mergeRanges(current.from, current.to);
-                            if (next.from !== -1) {
-                                this._internalSeek(next.from, false, false);
+                            if (this._totalLength) {
+                                var nextFrom = this._currentRange.to + 1;
+                                if (nextFrom < this._totalLength) {
+                                    _logger2.default.w(this.TAG, 'Connection lost, trying reconnect...');
+                                    this._isEarlyEofReconnecting = true;
+                                    this._internalSeek(nextFrom, false);
+                                }
+                                return;
                             }
-                            return;
+                            // else: We don't know totalLength, throw UnrecoverableEarlyEof
                         }
                         // live stream: throw UnrecoverableEarlyEof error to upper-layer
                         type = _loader.LoaderErrors.UNRECOVERABLE_EARLY_EOF;
@@ -6088,9 +5921,6 @@ var IOController = function () {
         set: function set(callback) {
             this._onDataArrival = callback;
         }
-
-        // TODO: add SeekReason: Request / internal(continue loading, reconnecting)
-
     }, {
         key: 'onSeeked',
         get: function get() {
@@ -7209,7 +7039,7 @@ var RangeLoader = function (_BaseLoader) {
                     this._contentLength = this._totalLength - this._range.from;
                 } else {
                     // to !== -1
-                    this._contentLength = this._range.to - this._range.from;
+                    this._contentLength = this._range.to - this._range.from + 1;
                 }
 
                 if (openNextRange) {
