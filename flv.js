@@ -7618,7 +7618,22 @@ var FlvPlayer = function () {
         value: function _internalSeek(seconds) {
             var directSeek = this._isTimepointBuffered(seconds);
 
-            if (directSeek) {
+            var directSeekBegin = false;
+            var directSeekBeginTime = 0;
+
+            if (seconds < 1.0) {
+                var videoBeginTime = this._mediaElement.buffered.start(0);
+                if (videoBeginTime < 1.0 && seconds < videoBeginTime) {
+                    directSeekBegin = true;
+                    directSeekBeginTime = videoBeginTime;
+                }
+            }
+
+            if (directSeekBegin) {
+                // seek to video begin, set currentTime directly if beginPTS buffered
+                this._requestSetTime = true;
+                this._mediaElement.currentTime = directSeekBeginTime;
+            } else if (directSeek) {
                 // buffered position
                 if (!this._alwaysSeekKeyframe) {
                     this._requestSetTime = true;
@@ -7694,6 +7709,17 @@ var FlvPlayer = function () {
                 this._requestSetTime = false;
                 return;
             }
+
+            if (target < 1.0) {
+                // seek to video begin, set currentTime directly if beginPTS buffered
+                var videoBeginTime = this._mediaElement.buffered.start(0);
+                if (videoBeginTime < 1.0 && target < videoBeginTime) {
+                    this._requestSetTime = true;
+                    this._mediaElement.currentTime = videoBeginTime;
+                    return;
+                }
+            }
+
             if (this._isTimepointBuffered(target)) {
                 if (this._alwaysSeekKeyframe) {
                     var idr = this._msectl.getNearestKeyframe(Math.floor(target * 1000));
