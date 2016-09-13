@@ -2431,7 +2431,7 @@ var MSEController = function () {
 
 exports.default = MSEController;
 
-},{"../utils/exception.js":39,"../utils/logger.js":40,"./media-segment-info.js":8,"./mse-events.js":10,"events":2}],10:[function(require,module,exports){
+},{"../utils/exception.js":40,"../utils/logger.js":41,"./media-segment-info.js":8,"./mse-events.js":10,"events":2}],10:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -2742,7 +2742,7 @@ var Transmuxer = function () {
 
 exports.default = Transmuxer;
 
-},{"../utils/logger.js":40,"../utils/logging-control.js":41,"./media-info.js":7,"./transmuxing-controller.js":12,"./transmuxing-events.js":13,"./transmuxing-worker.js":14,"events":2,"webworkify":4}],12:[function(require,module,exports){
+},{"../utils/logger.js":41,"../utils/logging-control.js":42,"./media-info.js":7,"./transmuxing-controller.js":12,"./transmuxing-events.js":13,"./transmuxing-worker.js":14,"events":2,"webworkify":4}],12:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3134,7 +3134,7 @@ var TransmuxingController = function () {
 
 exports.default = TransmuxingController;
 
-},{"../demux/demux-errors.js":16,"../demux/flv-demuxer.js":18,"../io/io-controller.js":22,"../io/loader.js":23,"../remux/mp4-remuxer.js":36,"../utils/logger.js":40,"./media-info.js":7,"./transmuxing-events.js":13,"events":2}],13:[function(require,module,exports){
+},{"../demux/demux-errors.js":16,"../demux/flv-demuxer.js":18,"../io/io-controller.js":22,"../io/loader.js":23,"../remux/mp4-remuxer.js":37,"../utils/logger.js":41,"./media-info.js":7,"./transmuxing-events.js":13,"events":2}],13:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3327,7 +3327,7 @@ var TransmuxingWorker = function TransmuxingWorker(self) {
 
 exports.default = TransmuxingWorker;
 
-},{"../utils/logger.js":40,"../utils/logging-control.js":41,"../utils/polyfill.js":42,"./transmuxing-controller.js":12,"./transmuxing-events.js":13}],15:[function(require,module,exports){
+},{"../utils/logger.js":41,"../utils/logging-control.js":42,"../utils/polyfill.js":43,"./transmuxing-controller.js":12,"./transmuxing-events.js":13}],15:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3601,7 +3601,7 @@ var AMF = function () {
 
 exports.default = AMF;
 
-},{"../utils/exception.js":39,"../utils/logger.js":40,"../utils/utf8-conv.js":43}],16:[function(require,module,exports){
+},{"../utils/exception.js":40,"../utils/logger.js":41,"../utils/utf8-conv.js":44}],16:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3739,7 +3739,7 @@ var ExpGolomb = function () {
 
 exports.default = ExpGolomb;
 
-},{"../utils/exception.js":39}],18:[function(require,module,exports){
+},{"../utils/exception.js":40}],18:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -4683,7 +4683,7 @@ var FlvDemuxer = function () {
 
 exports.default = FlvDemuxer;
 
-},{"../core/media-info.js":7,"../utils/bsearch.js":38,"../utils/exception.js":39,"../utils/logger.js":40,"./amf-parser.js":15,"./demux-errors.js":16,"./sps-parser.js":19}],19:[function(require,module,exports){
+},{"../core/media-info.js":7,"../utils/bsearch.js":39,"../utils/exception.js":40,"../utils/logger.js":41,"./amf-parser.js":15,"./demux-errors.js":16,"./sps-parser.js":19}],19:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -5075,7 +5075,7 @@ flvjs.LoggingControl = _loggingControl2.default;
 window.flvjs = flvjs;
 exports.default = flvjs;
 
-},{"./core/features.js":6,"./player/flv-player.js":30,"./player/native-player.js":31,"./player/player-errors.js":32,"./player/player-events.js":33,"./utils/exception.js":39,"./utils/logging-control.js":41,"./utils/polyfill.js":42}],21:[function(require,module,exports){
+},{"./core/features.js":6,"./player/flv-player.js":31,"./player/native-player.js":32,"./player/player-errors.js":33,"./player/player-events.js":34,"./utils/exception.js":40,"./utils/logging-control.js":42,"./utils/polyfill.js":43}],21:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -5293,7 +5293,7 @@ var FetchStreamLoader = function (_BaseLoader) {
 
 exports.default = FetchStreamLoader;
 
-},{"../utils/browser.js":37,"../utils/exception.js":39,"../utils/logger.js":40,"./loader.js":23}],22:[function(require,module,exports){
+},{"../utils/browser.js":38,"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":23}],22:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -5306,11 +5306,11 @@ var _logger = require('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _loader = require('./loader.js');
-
 var _speedSampler = require('./speed-sampler.js');
 
 var _speedSampler2 = _interopRequireDefault(_speedSampler);
+
+var _loader = require('./loader.js');
 
 var _fetchStreamLoader = require('./fetch-stream-loader.js');
 
@@ -5327,6 +5327,10 @@ var _xhrMsstreamLoader2 = _interopRequireDefault(_xhrMsstreamLoader);
 var _xhrRangeLoader = require('./xhr-range-loader.js');
 
 var _xhrRangeLoader2 = _interopRequireDefault(_xhrRangeLoader);
+
+var _websocketLoader = require('./websocket-loader.js');
+
+var _websocketLoader2 = _interopRequireDefault(_websocketLoader);
 
 var _rangeSeekHandler = require('./range-seek-handler.js');
 
@@ -5386,6 +5390,7 @@ var IOController = function () {
         this._seekHandler = null;
 
         this._dataSource = dataSource;
+        this._isWebSocketURL = /wss?:\/\/(.+?)\//.test(dataSource.url);
         this._refTotalLength = dataSource.filesize ? dataSource.filesize : null;
         this._totalLength = this._refTotalLength;
         this._fullRequestFlag = false;
@@ -5471,10 +5476,10 @@ var IOController = function () {
     }, {
         key: '_selectLoader',
         value: function _selectLoader() {
-            if (_fetchStreamLoader2.default.isSupported()) {
+            if (this._isWebSocketURL) {
+                this._loaderClass = _websocketLoader2.default;
+            } else if (_fetchStreamLoader2.default.isSupported()) {
                 this._loaderClass = _fetchStreamLoader2.default;
-            } else if (_xhrMsstreamLoader2.default.isSupported()) {
-                this._loaderClass = _xhrMsstreamLoader2.default;
             } else if (_xhrMozChunkedLoader2.default.isSupported()) {
                 this._loaderClass = _xhrMozChunkedLoader2.default;
             } else if (_xhrRangeLoader2.default.isSupported()) {
@@ -5985,7 +5990,7 @@ var IOController = function () {
 
 exports.default = IOController;
 
-},{"../utils/exception.js":39,"../utils/logger.js":40,"./fetch-stream-loader.js":21,"./loader.js":23,"./param-seek-handler.js":24,"./range-seek-handler.js":25,"./speed-sampler.js":26,"./xhr-moz-chunked-loader.js":27,"./xhr-msstream-loader.js":28,"./xhr-range-loader.js":29}],23:[function(require,module,exports){
+},{"../utils/exception.js":40,"../utils/logger.js":41,"./fetch-stream-loader.js":21,"./loader.js":23,"./param-seek-handler.js":24,"./range-seek-handler.js":25,"./speed-sampler.js":26,"./websocket-loader.js":27,"./xhr-moz-chunked-loader.js":28,"./xhr-msstream-loader.js":29,"./xhr-range-loader.js":30}],23:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6116,7 +6121,7 @@ var BaseLoader = exports.BaseLoader = function () {
     return BaseLoader;
 }();
 
-},{"../utils/exception.js":39}],24:[function(require,module,exports){
+},{"../utils/exception.js":40}],24:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6308,6 +6313,161 @@ var SpeedSampler = function () {
 exports.default = SpeedSampler;
 
 },{}],27:[function(require,module,exports){
+'use strict';
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _logger = require('../utils/logger.js');
+
+var _logger2 = _interopRequireDefault(_logger);
+
+var _loader = require('./loader.js');
+
+var _exception = require('../utils/exception.js');
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+// For FLV over WebSocket live stream
+var WebSocketLoader = function (_BaseLoader) {
+    _inherits(WebSocketLoader, _BaseLoader);
+
+    _createClass(WebSocketLoader, null, [{
+        key: 'isSupported',
+        value: function isSupported() {
+            try {
+                return typeof self.WebSocket !== 'undefined';
+            } catch (e) {
+                return false;
+            }
+        }
+    }]);
+
+    function WebSocketLoader() {
+        _classCallCheck(this, WebSocketLoader);
+
+        var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(WebSocketLoader).call(this, 'websocket-loader'));
+
+        _this.TAG = _this.constructor.name;
+
+        _this._needStash = true;
+
+        _this._ws = null;
+        _this._requestAbort = false;
+        _this._receivedLength = 0;
+        return _this;
+    }
+
+    _createClass(WebSocketLoader, [{
+        key: 'destroy',
+        value: function destroy() {
+            if (this._ws) {
+                this.abort();
+            }
+            _get(Object.getPrototypeOf(WebSocketLoader.prototype), 'destroy', this).call(this);
+        }
+    }, {
+        key: 'open',
+        value: function open(dataSource) {
+            try {
+                var ws = this._ws = new self.WebSocket(dataSource.url);
+                ws.binaryType = 'arraybuffer';
+                ws.onopen = this._onWebSocketOpen.bind(this);
+                ws.onclose = this._onWebSocketClose.bind(this);
+                ws.onmessage = this._onWebSocketMessage.bind(this);
+                ws.onerror = this._onWebSocketError.bind(this);
+
+                this._status = _loader.LoaderStatus.kConnecting;
+            } catch (e) {
+                this._status = _loader.LoaderStatus.kError;
+
+                var info = { code: e.code, msg: e.message };
+
+                if (this._onError) {
+                    this._onError(_loader.LoaderErrors.EXCEPTION, info);
+                } else {
+                    throw new _exception.RuntimeException(info.msg);
+                }
+            }
+        }
+    }, {
+        key: 'abort',
+        value: function abort() {
+            var ws = this._ws;
+            if (ws && (ws.readyState === 0 || ws.readyState === 1)) {
+                // CONNECTING || OPEN
+                this._requestAbort = true;
+                ws.close();
+            }
+
+            this._ws = null;
+            this._status = _loader.LoaderStatus.kComplete;
+        }
+    }, {
+        key: '_onWebSocketOpen',
+        value: function _onWebSocketOpen(e) {
+            this._status = _loader.LoaderStatus.kBuffering;
+        }
+    }, {
+        key: '_onWebSocketClose',
+        value: function _onWebSocketClose(e) {
+            if (this._requestAbort === true) {
+                this._requestAbort = false;
+                return;
+            }
+
+            this._status = _loader.LoaderStatus.kComplete;
+
+            if (this._onComplete) {
+                this._onComplete(0, this._receivedLength - 1);
+            }
+        }
+    }, {
+        key: '_onWebSocketMessage',
+        value: function _onWebSocketMessage(e) {
+            var chunk = e.data;
+            var byteStart = this._receivedLength;
+            this._receivedLength += chunk.byteLength;
+
+            if (this._onDataArrival) {
+                this._onDataArrival(chunk, byteStart, this._receivedLength);
+            }
+        }
+    }, {
+        key: '_onWebSocketError',
+        value: function _onWebSocketError(e) {
+            this._status = _loader.LoaderStatus.kError;
+
+            var info = {
+                code: e.code,
+                msg: e.message
+            };
+
+            if (this._onError) {
+                this._onError(_loader.LoaderErrors.EXCEPTION, info);
+            } else {
+                throw new _exception.RuntimeException(info.msg);
+            }
+        }
+    }]);
+
+    return WebSocketLoader;
+}(_loader.BaseLoader);
+
+exports.default = WebSocketLoader;
+
+},{"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":23}],28:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6515,7 +6675,7 @@ var MozChunkedLoader = function (_BaseLoader) {
 
 exports.default = MozChunkedLoader;
 
-},{"../utils/exception.js":39,"../utils/logger.js":40,"./loader.js":23}],28:[function(require,module,exports){
+},{"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":23}],29:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6544,7 +6704,10 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-/* For IE11/Edge browser by microsoft which supports `xhr.responseType = 'ms-stream'`
+/* Notice: ms-stream may cause IE/Edge browser crash if seek too frequently!!!
+ * The browser may crash in wininet.dll. Disable for now.
+ *
+ * For IE11/Edge browser by microsoft which supports `xhr.responseType = 'ms-stream'`
  * Notice that ms-stream API sucks. The buffer is always expanding along with downloading.
  *
  * We need to abort the xhr if buffer size exceeded limit size (e.g. 16 MiB), then do reconnect.
@@ -6814,7 +6977,7 @@ var MSStreamLoader = function (_BaseLoader) {
 
 exports.default = MSStreamLoader;
 
-},{"../utils/exception.js":39,"../utils/logger.js":40,"./loader.js":23}],29:[function(require,module,exports){
+},{"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":23}],30:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7156,7 +7319,7 @@ var RangeLoader = function (_BaseLoader) {
 
 exports.default = RangeLoader;
 
-},{"../utils/exception.js":39,"../utils/logger.js":40,"./loader.js":23,"./speed-sampler.js":26}],30:[function(require,module,exports){
+},{"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":23,"./speed-sampler.js":26}],31:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7807,7 +7970,7 @@ var FlvPlayer = function () {
 
 exports.default = FlvPlayer;
 
-},{"../config.js":5,"../core/mse-controller.js":9,"../core/mse-events.js":10,"../core/transmuxer.js":11,"../core/transmuxing-events.js":13,"../utils/browser.js":37,"../utils/exception.js":39,"../utils/logger.js":40,"./player-errors.js":32,"./player-events.js":33,"events":2}],31:[function(require,module,exports){
+},{"../config.js":5,"../core/mse-controller.js":9,"../core/mse-events.js":10,"../core/transmuxer.js":11,"../core/transmuxing-events.js":13,"../utils/browser.js":38,"../utils/exception.js":40,"../utils/logger.js":41,"./player-errors.js":33,"./player-events.js":34,"events":2}],32:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8082,7 +8245,7 @@ var NativePlayer = function () {
 
 exports.default = NativePlayer;
 
-},{"../config.js":5,"../utils/exception.js":39,"./player-events.js":33,"events":2}],32:[function(require,module,exports){
+},{"../config.js":5,"../utils/exception.js":40,"./player-events.js":34,"events":2}],33:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8117,7 +8280,7 @@ var ErrorDetails = exports.ErrorDetails = {
     MEDIA_CODEC_UNSUPPORTED: _demuxErrors2.default.CODEC_UNSUPPORTED
 };
 
-},{"../demux/demux-errors.js":16,"../io/loader.js":23}],33:[function(require,module,exports){
+},{"../demux/demux-errors.js":16,"../io/loader.js":23}],34:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8133,7 +8296,7 @@ var PlayerEvents = {
 
 exports.default = PlayerEvents;
 
-},{}],34:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -8176,7 +8339,7 @@ var AAC = function () {
 
 exports.default = AAC;
 
-},{}],35:[function(require,module,exports){
+},{}],36:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8658,7 +8821,7 @@ MP4.init();
 
 exports.default = MP4;
 
-},{}],36:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -9218,7 +9381,7 @@ var MP4Remuxer = function () {
 
 exports.default = MP4Remuxer;
 
-},{"../core/media-segment-info.js":8,"../utils/browser.js":37,"../utils/exception.js":39,"../utils/logger.js":40,"./aac-silent.js":34,"./mp4-generator.js":35}],37:[function(require,module,exports){
+},{"../core/media-segment-info.js":8,"../utils/browser.js":38,"../utils/exception.js":40,"../utils/logger.js":41,"./aac-silent.js":35,"./mp4-generator.js":36}],38:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -9314,7 +9477,7 @@ detect();
 
 exports.default = Browser;
 
-},{}],38:[function(require,module,exports){
+},{}],39:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -9390,7 +9553,7 @@ var BSearch = function () {
 
 exports.default = BSearch;
 
-},{}],39:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -9489,7 +9652,7 @@ var NotImplementedException = exports.NotImplementedException = function (_Runti
     return NotImplementedException;
 }(RuntimeException);
 
-},{}],40:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -9601,7 +9764,7 @@ Log.ENABLE_VERBOSE = true;
 
 exports.default = Log;
 
-},{}],41:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -9756,7 +9919,7 @@ LoggingControl.emitter = new _events2.default();
 
 exports.default = LoggingControl;
 
-},{"./logger.js":40,"events":2}],42:[function(require,module,exports){
+},{"./logger.js":41,"events":2}],43:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -9816,7 +9979,7 @@ Polyfill.install();
 
 exports.default = Polyfill;
 
-},{"es6-promise":1}],43:[function(require,module,exports){
+},{"es6-promise":1}],44:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
