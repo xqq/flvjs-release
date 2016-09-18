@@ -2997,7 +2997,11 @@ var TransmuxingController = function () {
 
             var probeData = null;
 
-            if ((probeData = _flvDemuxer2.default.probe(data)).match) {
+            if (byteStart > 0) {
+                // IOController seeked immediately after opened, byteStart > 0 callback may received
+                this._demuxer.bindDataSource(this._ioctl);
+                this._demuxer.timestampBase = this._mediaDataSource.segments[this._currentSegmentIndex].timestampBase;
+            } else if ((probeData = _flvDemuxer2.default.probe(data)).match) {
                 // Always create new FlvDemuxer
                 this._demuxer = new _flvDemuxer2.default(probeData, this._config);
 
