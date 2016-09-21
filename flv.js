@@ -1505,7 +1505,7 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.createDefaultConfig = createDefaultConfig;
 var defaultConfig = exports.defaultConfig = {
-    enableWorker: true,
+    enableWorker: false,
     enableStashBuffer: true,
     stashInitialSize: undefined,
 
@@ -2030,6 +2030,10 @@ var _logger = require('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
+var _browser = require('../utils/browser.js');
+
+var _browser2 = _interopRequireDefault(_browser);
+
 var _mseEvents = require('./mse-events.js');
 
 var _mseEvents2 = _interopRequireDefault(_mseEvents);
@@ -2072,6 +2076,10 @@ var MSEController = function () {
             audio: null
         };
         this._sourceBuffers = {
+            video: null,
+            audio: null
+        };
+        this._lastInitSegments = {
             video: null,
             audio: null
         };
@@ -2132,6 +2140,7 @@ var MSEController = function () {
                     ps.splice(0, ps.length);
                     this._pendingSegments[type] = null;
                     this._pendingRemoveRanges[type] = null;
+                    this._lastInitSegments[type] = null;
 
                     // remove all sourcebuffers
                     var sb = this._sourceBuffers[type];
@@ -2188,6 +2197,8 @@ var MSEController = function () {
             var firstInitSegment = false;
 
             _logger2.default.v(this.TAG, 'Received Initialization Segment, mimeType: ' + mimeType);
+            this._lastInitSegments[is.type] = is;
+
             if (mimeType !== this._mimeTypes[is.type]) {
                 if (!this._mimeTypes[is.type]) {
                     // empty, first chance create sourcebuffer
@@ -2272,6 +2283,18 @@ var MSEController = function () {
                 // if sb is not updating, let's remove ranges now!
                 if (!sb.updating) {
                     this._doRemoveRanges();
+                }
+
+                // Safari 10 may get InvalidStateError in the later appendBuffer() after SourceBuffer.remove() call
+                // Internal parser's state may be invalid at this time. Re-append last InitSegment to workaround.
+                if (_browser2.default.safari) {
+                    var lastInitSegment = this._lastInitSegments[type];
+                    if (lastInitSegment) {
+                        this._pendingSegments[type].push(lastInitSegment);
+                        if (!sb.updating) {
+                            this._doAppendSegments();
+                        }
+                    }
                 }
             }
         }
@@ -2436,7 +2459,7 @@ var MSEController = function () {
 
 exports.default = MSEController;
 
-},{"../utils/exception.js":40,"../utils/logger.js":41,"./media-segment-info.js":8,"./mse-events.js":10,"events":2}],10:[function(require,module,exports){
+},{"../utils/browser.js":38,"../utils/exception.js":40,"../utils/logger.js":41,"./media-segment-info.js":8,"./mse-events.js":10,"events":2}],10:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -2844,6 +2867,7 @@ var TransmuxingController = function () {
         this._ioctl = null;
 
         this._pendingSeekTime = null;
+        this._pendingResolveSeekPoint = null;
     }
 
     _createClass(TransmuxingController, [{
@@ -2955,7 +2979,8 @@ var TransmuxingController = function () {
                     var keyframe = segmentInfo.getNearestKeyframe(milliseconds);
                     this._remuxer.seek(keyframe.milliseconds);
                     this._ioctl.seek(keyframe.fileposition);
-                    this._emitter.emit(_transmuxingEvents2.default.RECOMMEND_SEEKPOINT, keyframe.milliseconds);
+                    // Will be resolved in @_onRemuxerMediaSegmentArrival
+                    this._pendingResolveSeekPoint = keyframe.milliseconds;
                 }
             } else {
                 // cross-segment seeking
@@ -2977,7 +3002,7 @@ var TransmuxingController = function () {
                     this._remuxer.insertDiscontinuity();
                     this._demuxer.timestampBase = this._mediaDataSource.segments[targetSegmentIndex].timestampBase;
                     this._loadSegment(targetSegmentIndex, _keyframe.fileposition);
-                    this._emitter.emit(_transmuxingEvents2.default.RECOMMEND_SEEKPOINT, _keyframe.milliseconds);
+                    this._pendingResolveSeekPoint = _keyframe.milliseconds;
                 }
             }
         }
@@ -3120,6 +3145,20 @@ var TransmuxingController = function () {
                 return;
             }
             this._emitter.emit(_transmuxingEvents2.default.MEDIA_SEGMENT, type, mediaSegment);
+
+            if (this._pendingResolveSeekPoint != null) {
+                var syncPoints = mediaSegment.info.syncPoints;
+                var seekpoint = this._pendingResolveSeekPoint;
+                this._pendingResolveSeekPoint = null;
+
+                if (syncPoints.length > 0 && syncPoints[0].originalDts === seekpoint) {
+                    seekpoint = syncPoints[0].pts;
+                }
+                // else: use original DTS (keyframe.milliseconds)
+
+                this._emitter.emit(_transmuxingEvents2.default.RECOMMEND_SEEKPOINT, seekpoint);
+            }
+
             if (type === 'video') {
                 this._reportStatisticsInfo();
             }
