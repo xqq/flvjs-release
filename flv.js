@@ -5537,7 +5537,6 @@ var IOController = function () {
             } else if (_xhrMozChunkedLoader2.default.isSupported()) {
                 this._loaderClass = _xhrMozChunkedLoader2.default;
             } else if (_xhrRangeLoader2.default.isSupported()) {
-                _logger2.default.w(this.TAG, 'Your browser doesn\'t support streaming!');
                 this._loaderClass = _xhrRangeLoader2.default;
             } else {
                 throw new _exception.RuntimeException('Your browser doesn\'t support xhr with arraybuffer responseType!');
@@ -7392,6 +7391,10 @@ var _logger = require('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
+var _browser = require('../utils/browser.js');
+
+var _browser2 = _interopRequireDefault(_browser);
+
 var _playerEvents = require('./player-events.js');
 
 var _playerEvents2 = _interopRequireDefault(_playerEvents);
@@ -7413,10 +7416,6 @@ var _mseEvents = require('../core/mse-events.js');
 var _mseEvents2 = _interopRequireDefault(_mseEvents);
 
 var _playerErrors = require('./player-errors.js');
-
-var _browser = require('../utils/browser.js');
-
-var _browser2 = _interopRequireDefault(_browser);
 
 var _config = require('../config.js');
 
@@ -7840,9 +7839,10 @@ var FlvPlayer = function () {
 
             if (seconds < 1.0 && this._mediaElement.buffered.length > 0) {
                 var videoBeginTime = this._mediaElement.buffered.start(0);
-                if (videoBeginTime < 1.0 && seconds < videoBeginTime) {
+                if (videoBeginTime < 1.0 && seconds < videoBeginTime || _browser2.default.safari) {
                     directSeekBegin = true;
-                    directSeekBeginTime = videoBeginTime;
+                    // also workaround for Safari: Seek to 0 may cause video stuck, use 0.1 to avoid
+                    directSeekBeginTime = _browser2.default.safari ? 0.1 : videoBeginTime;
                 }
             }
 
@@ -7930,9 +7930,10 @@ var FlvPlayer = function () {
             if (target < 1.0 && this._mediaElement.buffered.length > 0) {
                 // seek to video begin, set currentTime directly if beginPTS buffered
                 var videoBeginTime = this._mediaElement.buffered.start(0);
-                if (videoBeginTime < 1.0 && target < videoBeginTime) {
+                if (videoBeginTime < 1.0 && target < videoBeginTime || _browser2.default.safari) {
                     this._requestSetTime = true;
-                    this._mediaElement.currentTime = videoBeginTime;
+                    // also workaround for Safari: Seek to 0 may cause video stuck, use 0.1 to avoid
+                    this._mediaElement.currentTime = _browser2.default.safari ? 0.1 : videoBeginTime;
                     return;
                 }
             }
