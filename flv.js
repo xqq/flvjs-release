@@ -2287,6 +2287,7 @@ var MSEController = function () {
 
                 // Safari 10 may get InvalidStateError in the later appendBuffer() after SourceBuffer.remove() call
                 // Internal parser's state may be invalid at this time. Re-append last InitSegment to workaround.
+                // Related issue: https://bugs.webkit.org/show_bug.cgi?id=159230
                 if (_browser2.default.safari) {
                     var lastInitSegment = this._lastInitSegments[type];
                     if (lastInitSegment) {
@@ -2787,6 +2788,10 @@ var _logger = require('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
+var _browser = require('../utils/browser.js');
+
+var _browser2 = _interopRequireDefault(_browser);
+
 var _mediaInfo = require('./media-info.js');
 
 var _mediaInfo2 = _interopRequireDefault(_mediaInfo);
@@ -2979,7 +2984,7 @@ var TransmuxingController = function () {
                     var keyframe = segmentInfo.getNearestKeyframe(milliseconds);
                     this._remuxer.seek(keyframe.milliseconds);
                     this._ioctl.seek(keyframe.fileposition);
-                    // Will be resolved in @_onRemuxerMediaSegmentArrival
+                    // Will be resolved in _onRemuxerMediaSegmentArrival()
                     this._pendingResolveSeekPoint = keyframe.milliseconds;
                 }
             } else {
@@ -3146,12 +3151,13 @@ var TransmuxingController = function () {
             }
             this._emitter.emit(_transmuxingEvents2.default.MEDIA_SEGMENT, type, mediaSegment);
 
-            if (this._pendingResolveSeekPoint != null) {
+            if (this._pendingResolveSeekPoint != null && type === 'video') {
                 var syncPoints = mediaSegment.info.syncPoints;
                 var seekpoint = this._pendingResolveSeekPoint;
                 this._pendingResolveSeekPoint = null;
 
-                if (syncPoints.length > 0 && syncPoints[0].originalDts === seekpoint) {
+                // Safari: Pass PTS for recommend_seekpoint
+                if (_browser2.default.safari && syncPoints.length > 0 && syncPoints[0].originalDts === seekpoint) {
                     seekpoint = syncPoints[0].pts;
                 }
                 // else: use original DTS (keyframe.milliseconds)
@@ -3182,7 +3188,7 @@ var TransmuxingController = function () {
 
 exports.default = TransmuxingController;
 
-},{"../demux/demux-errors.js":16,"../demux/flv-demuxer.js":18,"../io/io-controller.js":22,"../io/loader.js":23,"../remux/mp4-remuxer.js":37,"../utils/logger.js":41,"./media-info.js":7,"./transmuxing-events.js":13,"events":2}],13:[function(require,module,exports){
+},{"../demux/demux-errors.js":16,"../demux/flv-demuxer.js":18,"../io/io-controller.js":22,"../io/loader.js":23,"../remux/mp4-remuxer.js":37,"../utils/browser.js":38,"../utils/logger.js":41,"./media-info.js":7,"./transmuxing-events.js":13,"events":2}],13:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
