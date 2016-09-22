@@ -4488,8 +4488,10 @@ var FlvDemuxer = function () {
                 offset += len;
 
                 var config = _spsParser2.default.parseSPS(sps);
-                meta.width = config.present_size.width;
-                meta.height = config.present_size.height;
+                meta.codecWidth = config.codec_size.width;
+                meta.codecHeight = config.codec_size.height;
+                meta.presentWidth = config.present_size.width;
+                meta.presentHeight = config.present_size.height;
 
                 meta.profile = config.profile_string;
                 meta.level = config.level_string;
@@ -4518,8 +4520,8 @@ var FlvDemuxer = function () {
                 meta.codec = codecString;
 
                 var mi = this._mediaInfo;
-                mi.width = config.codec_size.width;
-                mi.height = config.codec_size.height;
+                mi.width = meta.codecWidth;
+                mi.height = meta.codecHeight;
                 mi.fps = meta.frameRate.fps;
                 mi.profile = meta.profile;
                 mi.level = meta.level;
@@ -8582,8 +8584,9 @@ var MP4 = function () {
         value: function tkhd(meta) {
             var trackId = meta.id,
                 duration = meta.duration;
-            var width = meta.width,
-                height = meta.height;
+            var width = meta.presentWidth,
+                height = meta.presentHeight;
+
             return MP4.box(MP4.types.tkhd, new Uint8Array([0x00, 0x00, 0x00, 0x07, // version(0) + flags
             0x00, 0x00, 0x00, 0x00, // creation_time
             0x00, 0x00, 0x00, 0x00, // modification_time
@@ -8733,8 +8736,9 @@ var MP4 = function () {
         key: 'avc1',
         value: function avc1(meta) {
             var avcc = meta.avcc;
-            var width = meta.width,
-                height = meta.height;
+            var width = meta.codecWidth,
+                height = meta.codecHeight;
+
             var data = new Uint8Array([0x00, 0x00, 0x00, 0x00, // reserved(4)
             0x00, 0x00, 0x00, 0x01, // reserved(2) + data_reference_index(2)
             0x00, 0x00, 0x00, 0x00, // pre_defined(2) + reserved(2)
