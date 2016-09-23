@@ -3888,7 +3888,7 @@ var FlvDemuxer = function () {
             fps_den: 1000
         };
 
-        this._videoTrack = { type: 'video', id: 1, sequenceNumber: 0, samples: [], length: 0, nbNalu: 0 };
+        this._videoTrack = { type: 'video', id: 1, sequenceNumber: 0, samples: [], length: 0 };
         this._audioTrack = { type: 'audio', id: 2, sequenceNumber: 0, samples: [], length: 0 };
 
         this._littleEndian = function () {
@@ -4117,17 +4117,19 @@ var FlvDemuxer = function () {
     }, {
         key: '_parseKeyframesIndex',
         value: function _parseKeyframesIndex(keyframes) {
-            var _this = this;
-
             var times = [];
+            var filepositions = [];
 
-            keyframes.times.forEach(function (time) {
-                times.push(_this._timestampBase + Math.floor(time * 1000));
-            });
+            // ignore first keyframe which is actually AVC Sequence Header (AVCDecoderConfigurationRecord)
+            for (var i = 1; i < keyframes.times.length; i++) {
+                var time = this._timestampBase + Math.floor(keyframes.times[i] * 1000);
+                times.push(time);
+                filepositions.push(keyframes.filepositions[i]);
+            }
 
             return {
                 times: times,
-                filepositions: keyframes.filepositions
+                filepositions: filepositions
             };
         }
     }, {
@@ -4164,25 +4166,14 @@ var FlvDemuxer = function () {
 
                 var soundRate = 0;
                 var soundRateIndex = (soundSpec & 12) >>> 2;
-                switch (soundRateIndex) {
-                    case 0:
-                        soundRate = 5500;
-                        break;
-                    case 1:
-                        soundRate = 11025;
-                        break;
-                    case 2:
-                        soundRate = 22050;
-                        break;
-                    case 3:
-                        soundRate = 44100;
-                        break;
-                    case 4:
-                        soundRate = 48000;
-                        break;
-                    default:
-                        this._onError(_demuxErrors2.default.FORMAT_ERROR, 'Flv: Invalid audio sample rate idx: ' + soundRateIndex);
-                        return;
+
+                var soundRateTable = [5500, 11025, 22050, 44100, 48000];
+
+                if (soundRateIndex < soundRateTable.length) {
+                    soundRate = soundRateTable[soundRateIndex];
+                } else {
+                    this._onError(_demuxErrors2.default.FORMAT_ERROR, 'Flv: Invalid audio sample rate idx: ' + soundRateIndex);
+                    return;
                 }
 
                 var soundSize = (soundSpec & 2) >>> 1; // unused
@@ -4633,7 +4624,6 @@ var FlvDemuxer = function () {
                 }
                 track.samples.push(avcSample);
                 track.length += length;
-                track.nbNalu += units.length;
             }
         }
     }, {
@@ -7450,7 +7440,10 @@ var FlvPlayer = function () {
 
         this.e = {
             onvLoadedMetadata: this._onvLoadedMetadata.bind(this),
-            onvSeeking: this._onvSeeking.bind(this)
+            onvSeeking: this._onvSeeking.bind(this),
+            onvCanPlay: this._onvCanPlay.bind(this),
+            onvStalled: this._onvStalled.bind(this),
+            onvProgress: this._onvProgress.bind(this)
         };
 
         if (self.performance && self.performance.now) {
@@ -7474,6 +7467,7 @@ var FlvPlayer = function () {
 
         this._mseSourceOpened = false;
         this._hasPendingLoad = false;
+        this._receivedCanPlay = false;
 
         this._mediaInfo = null;
         this._statisticsInfo = null;
@@ -7549,6 +7543,9 @@ var FlvPlayer = function () {
             this._mediaElement = mediaElement;
             mediaElement.addEventListener('loadedmetadata', this.e.onvLoadedMetadata);
             mediaElement.addEventListener('seeking', this.e.onvSeeking);
+            mediaElement.addEventListener('canplay', this.e.onvCanPlay);
+            mediaElement.addEventListener('stalled', this.e.onvStalled);
+            mediaElement.addEventListener('progress', this.e.onvProgress);
 
             this._msectl = new _mseController2.default();
 
@@ -7584,6 +7581,9 @@ var FlvPlayer = function () {
                 this._msectl.detachMediaElement();
                 this._mediaElement.removeEventListener('loadedmetadata', this.e.onvLoadedMetadata);
                 this._mediaElement.removeEventListener('seeking', this.e.onvSeeking);
+                this._mediaElement.removeEventListener('canplay', this.e.onvCanPlay);
+                this._mediaElement.removeEventListener('stalled', this.e.onvStalled);
+                this._mediaElement.removeEventListener('progress', this.e.onvProgress);
                 this._mediaElement = null;
             }
             if (this._msectl) {
@@ -7912,6 +7912,24 @@ var FlvPlayer = function () {
             }
         }
     }, {
+        key: '_checkAndResumeStuckPlayback',
+        value: function _checkAndResumeStuckPlayback() {
+            var media = this._mediaElement;
+            if (!this._receivedCanPlay || media.readyState < 2) {
+                // HAVE_CURRENT_DATA
+                var buffered = media.buffered;
+                if (buffered.length > 0 && media.currentTime < buffered.start(0)) {
+                    _logger2.default.w(this.TAG, 'Playback seems stuck at ' + media.currentTime + ', seek to ' + buffered.start(0));
+                    this._requestSetTime = true;
+                    this._mediaElement.currentTime = buffered.start(0);
+                    this._mediaElement.removeEventListener('progress', this.e.onvProgress);
+                }
+            } else {
+                // Playback didn't stuck, remove progress event listener
+                this._mediaElement.removeEventListener('progress', this.e.onvProgress);
+            }
+        }
+    }, {
         key: '_onvLoadedMetadata',
         value: function _onvLoadedMetadata(e) {
             if (this._pendingSeekTime != null) {
@@ -7924,14 +7942,16 @@ var FlvPlayer = function () {
         value: function _onvSeeking(e) {
             // handle seeking request from browser's progress bar
             var target = this._mediaElement.currentTime;
+            var buffered = this._mediaElement.buffered;
+
             if (this._requestSetTime) {
                 this._requestSetTime = false;
                 return;
             }
 
-            if (target < 1.0 && this._mediaElement.buffered.length > 0) {
+            if (target < 1.0 && buffered.length > 0) {
                 // seek to video begin, set currentTime directly if beginPTS buffered
-                var videoBeginTime = this._mediaElement.buffered.start(0);
+                var videoBeginTime = buffered.start(0);
                 if (videoBeginTime < 1.0 && target < videoBeginTime || _browser2.default.safari) {
                     this._requestSetTime = true;
                     // also workaround for Safari: Seek to 0 may cause video stuck, use 0.1 to avoid
@@ -7959,6 +7979,22 @@ var FlvPlayer = function () {
                 recordTime: this._now()
             };
             window.setTimeout(this._checkAndApplyUnbufferedSeekpoint.bind(this), 50);
+        }
+    }, {
+        key: '_onvCanPlay',
+        value: function _onvCanPlay(e) {
+            this._receivedCanPlay = true;
+            this._mediaElement.removeEventListener('canplay', this.e.onvCanPlay);
+        }
+    }, {
+        key: '_onvStalled',
+        value: function _onvStalled(e) {
+            this._checkAndResumeStuckPlayback();
+        }
+    }, {
+        key: '_onvProgress',
+        value: function _onvProgress(e) {
+            this._checkAndResumeStuckPlayback();
         }
     }, {
         key: 'type',
@@ -9390,7 +9426,6 @@ var MP4Remuxer = function () {
             var moofbox = _mp4Generator2.default.moof(track, firstDts);
             track.samples = [];
             track.length = 0;
-            track.nbNalu = 0;
 
             this._onMediaSegment('video', {
                 type: 'video',
