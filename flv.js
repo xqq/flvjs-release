@@ -4584,6 +4584,10 @@ var FlvDemuxer = function () {
             var keyframe = frameType === 1; // from FLV Frame Type constants
 
             while (offset < dataSize) {
+                if (offset + 4 >= dataSize) {
+                    _logger2.default.w(this.TAG, 'Malformed Nalu near timestamp ' + dts + ', offset = ' + offset + ', dataSize = ' + dataSize);
+                    break; // data not enough for next Nalu
+                }
                 // Nalu with length-header (AVC1)
                 var naluSize = v.getUint32(offset, !le); // Big-Endian read
                 if (lengthSize === 3) {
