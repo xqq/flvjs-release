@@ -7917,9 +7917,9 @@ var FlvPlayer = function () {
         }
     }, {
         key: '_checkAndResumeStuckPlayback',
-        value: function _checkAndResumeStuckPlayback() {
+        value: function _checkAndResumeStuckPlayback(stalled) {
             var media = this._mediaElement;
-            if (!this._receivedCanPlay || media.readyState < 2) {
+            if (stalled || !this._receivedCanPlay || media.readyState < 2) {
                 // HAVE_CURRENT_DATA
                 var buffered = media.buffered;
                 if (buffered.length > 0 && media.currentTime < buffered.start(0)) {
@@ -7993,7 +7993,7 @@ var FlvPlayer = function () {
     }, {
         key: '_onvStalled',
         value: function _onvStalled(e) {
-            this._checkAndResumeStuckPlayback();
+            this._checkAndResumeStuckPlayback(true);
         }
     }, {
         key: '_onvProgress',
