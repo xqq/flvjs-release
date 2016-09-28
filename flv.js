@@ -7092,6 +7092,7 @@ var RangeLoader = function (_BaseLoader) {
         _this._currentChunkSizeKB = 384;
         _this._currentSpeed = 0;
         _this._currentSpeedNormalized = 0;
+        _this._zeroSpeedChunkCount = 0;
 
         _this._xhr = null;
         _this._speedSampler = new _speedSampler2.default();
@@ -7301,6 +7302,14 @@ var RangeLoader = function (_BaseLoader) {
 
             this._lastTimeLoaded = 0;
             var KBps = this._speedSampler.lastSecondKBps;
+            if (KBps === 0) {
+                this._zeroSpeedChunkCount++;
+                if (this._zeroSpeedChunkCount >= 3) {
+                    // Try get currentKBps after 3 chunks
+                    KBps = this._speedSampler.currentKBps;
+                }
+            }
+
             if (KBps !== 0) {
                 this._currentSpeed = KBps;
                 var normalized = this._normalizeSpeed(KBps);
