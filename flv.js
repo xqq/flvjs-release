@@ -1521,6 +1521,7 @@ var defaultConfig = exports.defaultConfig = {
     seekType: 'range', // [range, param, custom]
     seekParamStart: 'bstart',
     seekParamEnd: 'bend',
+    rangeLoadZeroStart: false,
     customSeekHandler: undefined
 };
 
@@ -3037,7 +3038,7 @@ var TransmuxingController = function () {
                 this._demuxer.bindDataSource(this._ioctl);
                 this._demuxer.timestampBase = this._mediaDataSource.segments[this._currentSegmentIndex].timestampBase;
             } else if ((probeData = _flvDemuxer2.default.probe(data)).match) {
-                // Always create new FlvDemuxer
+                // Always create new FLVDemuxer
                 this._demuxer = new _flvDemuxer2.default(probeData, this._config);
 
                 if (!this._remuxer) {
@@ -3846,9 +3847,9 @@ function ReadBig32(array, index) {
     return array[index] << 24 | array[index + 1] << 16 | array[index + 2] << 8 | array[index + 3];
 }
 
-var FlvDemuxer = function () {
-    function FlvDemuxer(probeData, config) {
-        _classCallCheck(this, FlvDemuxer);
+var FLVDemuxer = function () {
+    function FLVDemuxer(probeData, config) {
+        _classCallCheck(this, FLVDemuxer);
 
         this.TAG = this.constructor.name;
 
@@ -3898,7 +3899,7 @@ var FlvDemuxer = function () {
         }();
     }
 
-    _createClass(FlvDemuxer, [{
+    _createClass(FLVDemuxer, [{
         key: 'destroy',
         value: function destroy() {
             this._mediaInfo = null;
@@ -4728,10 +4729,10 @@ var FlvDemuxer = function () {
         }
     }]);
 
-    return FlvDemuxer;
+    return FLVDemuxer;
 }();
 
-exports.default = FlvDemuxer;
+exports.default = FLVDemuxer;
 
 },{"../core/media-info.js":7,"../utils/bsearch.js":39,"../utils/exception.js":40,"../utils/logger.js":41,"./amf-parser.js":15,"./demux-errors.js":16,"./sps-parser.js":19}],19:[function(require,module,exports){
 'use strict';
@@ -5508,7 +5509,7 @@ var IOController = function () {
             var config = this._config;
 
             if (config.seekType === 'range') {
-                this._seekHandler = new _rangeSeekHandler2.default();
+                this._seekHandler = new _rangeSeekHandler2.default(this._config.rangeLoadZeroStart);
             } else if (config.seekType === 'param') {
                 var paramStart = config.seekParamStart || 'bstart';
                 var paramEnd = config.seekParamEnd || 'bend';
@@ -6236,8 +6237,10 @@ var _createClass = function () { function defineProperties(target, props) { for 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 var RangeSeekHandler = function () {
-    function RangeSeekHandler() {
+    function RangeSeekHandler(zeroStart) {
         _classCallCheck(this, RangeSeekHandler);
+
+        this._zeroStart = zeroStart || false;
     }
 
     _createClass(RangeSeekHandler, [{
@@ -6253,6 +6256,8 @@ var RangeSeekHandler = function () {
                     param = 'bytes=' + range.from.toString() + '-';
                 }
                 headers['Range'] = param;
+            } else if (this._zeroStart) {
+                headers['Range'] = 'bytes=0-';
             }
 
             return {
