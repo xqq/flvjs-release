@@ -1,11 +1,11 @@
-(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.flvjs = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(_dereq_,module,exports){
 (function (process,global){
 /*!
  * @overview es6-promise - a tiny implementation of Promises/A+.
  * @copyright Copyright (c) 2014 Yehuda Katz, Tom Dale, Stefan Penner and contributors (Conversion to ES6 API by Jake Archibald)
  * @license   Licensed under MIT license
  *            See https://raw.githubusercontent.com/stefanpenner/es6-promise/master/LICENSE
- * @version   3.3.1
+ * @version   4.0.5
  */
 
 (function (global, factory) {
@@ -80,9 +80,13 @@ function useNextTick() {
 
 // vertx
 function useVertxTimer() {
-  return function () {
-    vertxNext(flush);
-  };
+  if (typeof vertxNext !== 'undefined') {
+    return function () {
+      vertxNext(flush);
+    };
+  }
+
+  return useSetTimeout();
 }
 
 function useMutationObserver() {
@@ -131,7 +135,7 @@ function flush() {
 
 function attemptVertx() {
   try {
-    var r = require;
+    var r = _dereq_;
     var vertx = r('vertx');
     vertxNext = vertx.runOnLoop || vertx.runOnContext;
     return useVertxTimer();
@@ -148,7 +152,7 @@ if (isNode) {
   scheduleFlush = useMutationObserver();
 } else if (isWorker) {
   scheduleFlush = useMessageChannel();
-} else if (browserWindow === undefined && typeof require === 'function') {
+} else if (browserWindow === undefined && typeof _dereq_ === 'function') {
   scheduleFlush = attemptVertx();
 } else {
   scheduleFlush = useSetTimeout();
@@ -1145,7 +1149,6 @@ function polyfill() {
     local.Promise = Promise;
 }
 
-polyfill();
 // Strange compat..
 Promise.polyfill = polyfill;
 Promise.Promise = Promise;
@@ -1154,9 +1157,9 @@ return Promise;
 
 })));
 
-}).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+}).call(this,_dereq_('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 
-},{"_process":3}],2:[function(require,module,exports){
+},{"_process":3}],2:[function(_dereq_,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -1460,7 +1463,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],3:[function(require,module,exports){
+},{}],3:[function(_dereq_,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -1642,7 +1645,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],4:[function(require,module,exports){
+},{}],4:[function(_dereq_,module,exports){
 var bundleFn = arguments[3];
 var sources = arguments[4];
 var cache = arguments[5];
@@ -1725,13 +1728,31 @@ module.exports = function (fn, options) {
     return worker;
 };
 
-},{}],5:[function(require,module,exports){
+},{}],5:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 exports.createDefaultConfig = createDefaultConfig;
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 var defaultConfig = exports.defaultConfig = {
     enableWorker: false,
     enableStashBuffer: true,
@@ -1757,20 +1778,36 @@ function createDefaultConfig() {
     return Object.assign({}, defaultConfig);
 }
 
-},{}],6:[function(require,module,exports){
+},{}],6:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      */
 
-var _ioController = require('../io/io-controller.js');
+var _ioController = _dereq_('../io/io-controller.js');
 
 var _ioController2 = _interopRequireDefault(_ioController);
 
-var _config = require('../config.js');
+var _config = _dereq_('../config.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -1841,7 +1878,7 @@ var Features = function () {
 
 exports.default = Features;
 
-},{"../config.js":5,"../io/io-controller.js":22}],7:[function(require,module,exports){
+},{"../config.js":5,"../io/io-controller.js":23}],7:[function(_dereq_,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -1851,6 +1888,24 @@ Object.defineProperty(exports, "__esModule", {
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 var MediaInfo = function () {
     function MediaInfo() {
@@ -1952,7 +2007,7 @@ var MediaInfo = function () {
 
 exports.default = MediaInfo;
 
-},{}],8:[function(require,module,exports){
+},{}],8:[function(_dereq_,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -1962,6 +2017,24 @@ Object.defineProperty(exports, "__esModule", {
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 // Represents an media sample (audio / video)
 var SampleInfo = exports.SampleInfo = function SampleInfo(dts, pts, duration, originalDts, isSync) {
@@ -2153,45 +2226,6 @@ var MediaSegmentInfoList = exports.MediaSegmentInfoList = function () {
             this._list.splice(insertIdx, 0, msi);
         }
     }, {
-        key: "removeSegmentsAfter",
-        value: function removeSegmentsAfter(originalDts) {
-            var list = this._list;
-            if (list.length === 0) {
-                return;
-            }
-            var last = list.length - 1;
-            var mid = 0;
-            var lbound = 0;
-            var ubound = last;
-
-            var idx = 0;
-
-            if (originalDts < list[0].originalBeginDts) {
-                idx = 0;
-                lbound = ubound + 1;
-            }
-
-            while (lbound <= ubound) {
-                mid = lbound + Math.floor((ubound - lbound) / 2);
-                if (mid === last) {
-                    // no segments need to be remove
-                    return;
-                } else if (list[mid].lastSample.originalDts < originalDts && originalDts <= list[mid + 1].originalBeginDts) {
-                    idx = mid + 1;
-                    break;
-                } else if (list[mid].originalBeginDts <= originalDts && originalDts < list[mid].originalEndDts) {
-                    idx = mid;
-                    break;
-                } else if (originalDts > list[mid].lastSample.originalDts) {
-                    lbound = mid + 1;
-                } else {
-                    ubound = mid - 1;
-                }
-            }
-
-            this._list.splice(idx, this._list.length - idx);
-        }
-    }, {
         key: "getLastSegmentBefore",
         value: function getLastSegmentBefore(originalBeginDts) {
             var idx = this._searchNearestSegmentBefore(originalBeginDts);
@@ -2242,34 +2276,50 @@ var MediaSegmentInfoList = exports.MediaSegmentInfoList = function () {
     return MediaSegmentInfoList;
 }();
 
-},{}],9:[function(require,module,exports){
+},{}],9:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      */
 
-var _events = require('events');
+var _events = _dereq_('events');
 
 var _events2 = _interopRequireDefault(_events);
 
-var _logger = require('../utils/logger.js');
+var _logger = _dereq_('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _browser = require('../utils/browser.js');
+var _browser = _dereq_('../utils/browser.js');
 
 var _browser2 = _interopRequireDefault(_browser);
 
-var _mseEvents = require('./mse-events.js');
+var _mseEvents = _dereq_('./mse-events.js');
 
 var _mseEvents2 = _interopRequireDefault(_mseEvents);
 
-var _mediaSegmentInfo = require('./media-segment-info.js');
+var _mediaSegmentInfo = _dereq_('./media-segment-info.js');
 
-var _exception = require('../utils/exception.js');
+var _exception = _dereq_('../utils/exception.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -2689,55 +2739,89 @@ var MSEController = function () {
 
 exports.default = MSEController;
 
-},{"../utils/browser.js":38,"../utils/exception.js":40,"../utils/logger.js":41,"./media-segment-info.js":8,"./mse-events.js":10,"events":2}],10:[function(require,module,exports){
+},{"../utils/browser.js":39,"../utils/exception.js":40,"../utils/logger.js":41,"./media-segment-info.js":8,"./mse-events.js":10,"events":2}],10:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
-    value: true
+  value: true
 });
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 var MSEEvents = {
-    ERROR: 'error',
-    SOURCE_OPEN: 'source_open',
-    UPDATE_END: 'update_end',
-    BUFFER_FULL: 'buffer_full'
+  ERROR: 'error',
+  SOURCE_OPEN: 'source_open',
+  UPDATE_END: 'update_end',
+  BUFFER_FULL: 'buffer_full'
 };
 
 exports.default = MSEEvents;
 
-},{}],11:[function(require,module,exports){
+},{}],11:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      */
 
-var _events = require('events');
+var _events = _dereq_('events');
 
 var _events2 = _interopRequireDefault(_events);
 
-var _logger = require('../utils/logger.js');
+var _logger = _dereq_('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _loggingControl = require('../utils/logging-control.js');
+var _loggingControl = _dereq_('../utils/logging-control.js');
 
 var _loggingControl2 = _interopRequireDefault(_loggingControl);
 
-var _transmuxingController = require('./transmuxing-controller.js');
+var _transmuxingController = _dereq_('./transmuxing-controller.js');
 
 var _transmuxingController2 = _interopRequireDefault(_transmuxingController);
 
-var _transmuxingEvents = require('./transmuxing-events.js');
+var _transmuxingEvents = _dereq_('./transmuxing-events.js');
 
 var _transmuxingEvents2 = _interopRequireDefault(_transmuxingEvents);
 
-var _transmuxingWorker = require('./transmuxing-worker.js');
+var _transmuxingWorker = _dereq_('./transmuxing-worker.js');
 
 var _transmuxingWorker2 = _interopRequireDefault(_transmuxingWorker);
 
-var _mediaInfo = require('./media-info.js');
+var _mediaInfo = _dereq_('./media-info.js');
 
 var _mediaInfo2 = _interopRequireDefault(_mediaInfo);
 
@@ -2754,7 +2838,7 @@ var Transmuxer = function () {
 
         if (config.enableWorker && typeof Worker !== 'undefined') {
             try {
-                var work = require('webworkify');
+                var work = _dereq_('webworkify');
                 this._worker = work(_transmuxingWorker2.default);
                 this._workerDestroying = false;
                 this._worker.addEventListener('message', this._onWorkerMessage.bind(this));
@@ -3000,52 +3084,68 @@ var Transmuxer = function () {
 
 exports.default = Transmuxer;
 
-},{"../utils/logger.js":41,"../utils/logging-control.js":42,"./media-info.js":7,"./transmuxing-controller.js":12,"./transmuxing-events.js":13,"./transmuxing-worker.js":14,"events":2,"webworkify":4}],12:[function(require,module,exports){
+},{"../utils/logger.js":41,"../utils/logging-control.js":42,"./media-info.js":7,"./transmuxing-controller.js":12,"./transmuxing-events.js":13,"./transmuxing-worker.js":14,"events":2,"webworkify":4}],12:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      */
 
-var _events = require('events');
+var _events = _dereq_('events');
 
 var _events2 = _interopRequireDefault(_events);
 
-var _logger = require('../utils/logger.js');
+var _logger = _dereq_('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _browser = require('../utils/browser.js');
+var _browser = _dereq_('../utils/browser.js');
 
 var _browser2 = _interopRequireDefault(_browser);
 
-var _mediaInfo = require('./media-info.js');
+var _mediaInfo = _dereq_('./media-info.js');
 
 var _mediaInfo2 = _interopRequireDefault(_mediaInfo);
 
-var _flvDemuxer = require('../demux/flv-demuxer.js');
+var _flvDemuxer = _dereq_('../demux/flv-demuxer.js');
 
 var _flvDemuxer2 = _interopRequireDefault(_flvDemuxer);
 
-var _mp4Remuxer = require('../remux/mp4-remuxer.js');
+var _mp4Remuxer = _dereq_('../remux/mp4-remuxer.js');
 
 var _mp4Remuxer2 = _interopRequireDefault(_mp4Remuxer);
 
-var _demuxErrors = require('../demux/demux-errors.js');
+var _demuxErrors = _dereq_('../demux/demux-errors.js');
 
 var _demuxErrors2 = _interopRequireDefault(_demuxErrors);
 
-var _ioController = require('../io/io-controller.js');
+var _ioController = _dereq_('../io/io-controller.js');
 
 var _ioController2 = _interopRequireDefault(_ioController);
 
-var _transmuxingEvents = require('./transmuxing-events.js');
+var _transmuxingEvents = _dereq_('./transmuxing-events.js');
 
 var _transmuxingEvents2 = _interopRequireDefault(_transmuxingEvents);
 
-var _loader = require('../io/loader.js');
+var _loader = _dereq_('../io/loader.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -3424,50 +3524,68 @@ var TransmuxingController = function () {
 
 exports.default = TransmuxingController;
 
-},{"../demux/demux-errors.js":16,"../demux/flv-demuxer.js":18,"../io/io-controller.js":22,"../io/loader.js":23,"../remux/mp4-remuxer.js":37,"../utils/browser.js":38,"../utils/logger.js":41,"./media-info.js":7,"./transmuxing-events.js":13,"events":2}],13:[function(require,module,exports){
+},{"../demux/demux-errors.js":16,"../demux/flv-demuxer.js":18,"../io/io-controller.js":23,"../io/loader.js":24,"../remux/mp4-remuxer.js":38,"../utils/browser.js":39,"../utils/logger.js":41,"./media-info.js":7,"./transmuxing-events.js":13,"events":2}],13:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
-    value: true
+  value: true
 });
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 var TransmuxingEvents = {
-    IO_ERROR: 'io_error',
-    DEMUX_ERROR: 'demux_error',
-    INIT_SEGMENT: 'init_segment',
-    MEDIA_SEGMENT: 'media_segment',
-    LOADING_COMPLETE: 'loading_complete',
-    RECOVERED_EARLY_EOF: 'recovered_early_eof',
-    MEDIA_INFO: 'media_info',
-    STATISTICS_INFO: 'statistics_info',
-    RECOMMEND_SEEKPOINT: 'recommend_seekpoint'
+  IO_ERROR: 'io_error',
+  DEMUX_ERROR: 'demux_error',
+  INIT_SEGMENT: 'init_segment',
+  MEDIA_SEGMENT: 'media_segment',
+  LOADING_COMPLETE: 'loading_complete',
+  RECOVERED_EARLY_EOF: 'recovered_early_eof',
+  MEDIA_INFO: 'media_info',
+  STATISTICS_INFO: 'statistics_info',
+  RECOMMEND_SEEKPOINT: 'recommend_seekpoint'
 };
 
 exports.default = TransmuxingEvents;
 
-},{}],14:[function(require,module,exports){
+},{}],14:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-var _logger = require('../utils/logger.js');
+var _logger = _dereq_('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _loggingControl = require('../utils/logging-control.js');
+var _loggingControl = _dereq_('../utils/logging-control.js');
 
 var _loggingControl2 = _interopRequireDefault(_loggingControl);
 
-var _polyfill = require('../utils/polyfill.js');
+var _polyfill = _dereq_('../utils/polyfill.js');
 
 var _polyfill2 = _interopRequireDefault(_polyfill);
 
-var _transmuxingController = require('./transmuxing-controller.js');
+var _transmuxingController = _dereq_('./transmuxing-controller.js');
 
 var _transmuxingController2 = _interopRequireDefault(_transmuxingController);
 
-var _transmuxingEvents = require('./transmuxing-events.js');
+var _transmuxingEvents = _dereq_('./transmuxing-events.js');
 
 var _transmuxingEvents2 = _interopRequireDefault(_transmuxingEvents);
 
@@ -3479,7 +3597,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
        param: any
    }
 
-   post message from worker inside:
+   receive message from worker:
    data: {
        msg: string,
        data: any
@@ -3613,28 +3731,60 @@ var TransmuxingWorker = function TransmuxingWorker(self) {
             data: milliseconds
         });
     }
-};
+}; /*
+    * Copyright (C) 2016 Bilibili. All Rights Reserved.
+    *
+    * @author zheng qian <xqq@xqq.im>
+    *
+    * Licensed under the Apache License, Version 2.0 (the "License");
+    * you may not use this file except in compliance with the License.
+    * You may obtain a copy of the License at
+    *
+    *     http://www.apache.org/licenses/LICENSE-2.0
+    *
+    * Unless required by applicable law or agreed to in writing, software
+    * distributed under the License is distributed on an "AS IS" BASIS,
+    * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    * See the License for the specific language governing permissions and
+    * limitations under the License.
+    */
 
 exports.default = TransmuxingWorker;
 
-},{"../utils/logger.js":41,"../utils/logging-control.js":42,"../utils/polyfill.js":43,"./transmuxing-controller.js":12,"./transmuxing-events.js":13}],15:[function(require,module,exports){
+},{"../utils/logger.js":41,"../utils/logging-control.js":42,"../utils/polyfill.js":43,"./transmuxing-controller.js":12,"./transmuxing-events.js":13}],15:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      */
 
-var _logger = require('../utils/logger.js');
+var _logger = _dereq_('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _utf8Conv = require('../utils/utf8-conv.js');
+var _utf8Conv = _dereq_('../utils/utf8-conv.js');
 
 var _utf8Conv2 = _interopRequireDefault(_utf8Conv);
 
-var _exception = require('../utils/exception.js');
+var _exception = _dereq_('../utils/exception.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -3891,36 +4041,69 @@ var AMF = function () {
 
 exports.default = AMF;
 
-},{"../utils/exception.js":40,"../utils/logger.js":41,"../utils/utf8-conv.js":44}],16:[function(require,module,exports){
+},{"../utils/exception.js":40,"../utils/logger.js":41,"../utils/utf8-conv.js":44}],16:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
-    value: true
+  value: true
 });
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 var DemuxErrors = {
-    OK: 'OK',
-    FORMAT_ERROR: 'FormatError',
-    FORMAT_UNSUPPORTED: 'FormatUnsupported',
-    CODEC_UNSUPPORTED: 'CodecUnsupported'
+  OK: 'OK',
+  FORMAT_ERROR: 'FormatError',
+  FORMAT_UNSUPPORTED: 'FormatUnsupported',
+  CODEC_UNSUPPORTED: 'CodecUnsupported'
 };
 
 exports.default = DemuxErrors;
 
-},{}],17:[function(require,module,exports){
+},{}],17:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      */
 
-var _exception = require('../utils/exception.js');
+var _exception = _dereq_('../utils/exception.js');
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 // Exponential-Golomb buffer decoder
-
 var ExpGolomb = function () {
     function ExpGolomb(uint8array) {
         _classCallCheck(this, ExpGolomb);
@@ -4029,7 +4212,7 @@ var ExpGolomb = function () {
 
 exports.default = ExpGolomb;
 
-},{"../utils/exception.js":40}],18:[function(require,module,exports){
+},{"../utils/exception.js":40}],18:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -4038,33 +4221,45 @@ Object.defineProperty(exports, "__esModule", {
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      */
 
-var _logger = require('../utils/logger.js');
+var _logger = _dereq_('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _amfParser = require('./amf-parser.js');
+var _amfParser = _dereq_('./amf-parser.js');
 
 var _amfParser2 = _interopRequireDefault(_amfParser);
 
-var _bsearch = require('../utils/bsearch.js');
-
-var _bsearch2 = _interopRequireDefault(_bsearch);
-
-var _spsParser = require('./sps-parser.js');
+var _spsParser = _dereq_('./sps-parser.js');
 
 var _spsParser2 = _interopRequireDefault(_spsParser);
 
-var _demuxErrors = require('./demux-errors.js');
+var _demuxErrors = _dereq_('./demux-errors.js');
 
 var _demuxErrors2 = _interopRequireDefault(_demuxErrors);
 
-var _mediaInfo = require('../core/media-info.js');
+var _mediaInfo = _dereq_('../core/media-info.js');
 
 var _mediaInfo2 = _interopRequireDefault(_mediaInfo);
 
-var _exception = require('../utils/exception.js');
+var _exception = _dereq_('../utils/exception.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -4980,16 +5175,32 @@ var FLVDemuxer = function () {
 
 exports.default = FLVDemuxer;
 
-},{"../core/media-info.js":7,"../utils/bsearch.js":39,"../utils/exception.js":40,"../utils/logger.js":41,"./amf-parser.js":15,"./demux-errors.js":16,"./sps-parser.js":19}],19:[function(require,module,exports){
+},{"../core/media-info.js":7,"../utils/exception.js":40,"../utils/logger.js":41,"./amf-parser.js":15,"./demux-errors.js":16,"./sps-parser.js":19}],19:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      */
 
-var _expGolomb = require('./exp-golomb.js');
+var _expGolomb = _dereq_('./exp-golomb.js');
 
 var _expGolomb2 = _interopRequireDefault(_expGolomb);
 
@@ -5281,46 +5492,62 @@ var SPSParser = function () {
 
 exports.default = SPSParser;
 
-},{"./exp-golomb.js":17}],20:[function(require,module,exports){
+},{"./exp-golomb.js":17}],20:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; /*
+                                                                                                                                                                                                                                                                               * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                               *
+                                                                                                                                                                                                                                                                               * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                               *
+                                                                                                                                                                                                                                                                               * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                               * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                               * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                               *
+                                                                                                                                                                                                                                                                               *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                               *
+                                                                                                                                                                                                                                                                               * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                               * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                               * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                               * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                               * limitations under the License.
+                                                                                                                                                                                                                                                                               */
 
-var _polyfill = require('./utils/polyfill.js');
+var _polyfill = _dereq_('./utils/polyfill.js');
 
 var _polyfill2 = _interopRequireDefault(_polyfill);
 
-var _features = require('./core/features.js');
+var _features = _dereq_('./core/features.js');
 
 var _features2 = _interopRequireDefault(_features);
 
-var _flvPlayer = require('./player/flv-player.js');
+var _flvPlayer = _dereq_('./player/flv-player.js');
 
 var _flvPlayer2 = _interopRequireDefault(_flvPlayer);
 
-var _nativePlayer = require('./player/native-player.js');
+var _nativePlayer = _dereq_('./player/native-player.js');
 
 var _nativePlayer2 = _interopRequireDefault(_nativePlayer);
 
-var _playerEvents = require('./player/player-events.js');
+var _playerEvents = _dereq_('./player/player-events.js');
 
 var _playerEvents2 = _interopRequireDefault(_playerEvents);
 
-var _playerErrors = require('./player/player-errors.js');
+var _playerErrors = _dereq_('./player/player-errors.js');
 
-var _loggingControl = require('./utils/logging-control.js');
+var _loggingControl = _dereq_('./utils/logging-control.js');
 
 var _loggingControl2 = _interopRequireDefault(_loggingControl);
 
-var _exception = require('./utils/exception.js');
+var _exception = _dereq_('./utils/exception.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-// entry/index file
+// here are all the interfaces
 
 // install polyfills
 _polyfill2.default.install();
@@ -5368,11 +5595,17 @@ flvjs.FlvPlayer = _flvPlayer2.default;
 flvjs.NativePlayer = _nativePlayer2.default;
 flvjs.LoggingControl = _loggingControl2.default;
 
-// export interfaces to global context
-window.flvjs = flvjs;
 exports.default = flvjs;
 
-},{"./core/features.js":6,"./player/flv-player.js":31,"./player/native-player.js":32,"./player/player-errors.js":33,"./player/player-events.js":34,"./utils/exception.js":40,"./utils/logging-control.js":42,"./utils/polyfill.js":43}],21:[function(require,module,exports){
+},{"./core/features.js":6,"./player/flv-player.js":32,"./player/native-player.js":33,"./player/player-errors.js":34,"./player/player-events.js":35,"./utils/exception.js":40,"./utils/logging-control.js":42,"./utils/polyfill.js":43}],21:[function(_dereq_,module,exports){
+'use strict';
+
+// entry/index file
+
+// make it compatible with browserify's umd wrapper
+module.exports = _dereq_('./flv.js').default;
+
+},{"./flv.js":20}],22:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -5385,17 +5618,17 @@ var _get = function get(object, property, receiver) { if (object === null) objec
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-var _logger = require('../utils/logger.js');
+var _logger = _dereq_('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _browser = require('../utils/browser.js');
+var _browser = _dereq_('../utils/browser.js');
 
 var _browser2 = _interopRequireDefault(_browser);
 
-var _loader = require('./loader.js');
+var _loader = _dereq_('./loader.js');
 
-var _exception = require('../utils/exception.js');
+var _exception = _dereq_('../utils/exception.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -5403,7 +5636,23 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                */
 
 /* fetch + stream IO loader. Currently working on chrome 43+.
  * fetch provides a better alternative http API to XMLHttpRequest
@@ -5590,54 +5839,70 @@ var FetchStreamLoader = function (_BaseLoader) {
 
 exports.default = FetchStreamLoader;
 
-},{"../utils/browser.js":38,"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":23}],22:[function(require,module,exports){
+},{"../utils/browser.js":39,"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":24}],23:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      */
 
-var _logger = require('../utils/logger.js');
+var _logger = _dereq_('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _speedSampler = require('./speed-sampler.js');
+var _speedSampler = _dereq_('./speed-sampler.js');
 
 var _speedSampler2 = _interopRequireDefault(_speedSampler);
 
-var _loader = require('./loader.js');
+var _loader = _dereq_('./loader.js');
 
-var _fetchStreamLoader = require('./fetch-stream-loader.js');
+var _fetchStreamLoader = _dereq_('./fetch-stream-loader.js');
 
 var _fetchStreamLoader2 = _interopRequireDefault(_fetchStreamLoader);
 
-var _xhrMozChunkedLoader = require('./xhr-moz-chunked-loader.js');
+var _xhrMozChunkedLoader = _dereq_('./xhr-moz-chunked-loader.js');
 
 var _xhrMozChunkedLoader2 = _interopRequireDefault(_xhrMozChunkedLoader);
 
-var _xhrMsstreamLoader = require('./xhr-msstream-loader.js');
+var _xhrMsstreamLoader = _dereq_('./xhr-msstream-loader.js');
 
 var _xhrMsstreamLoader2 = _interopRequireDefault(_xhrMsstreamLoader);
 
-var _xhrRangeLoader = require('./xhr-range-loader.js');
+var _xhrRangeLoader = _dereq_('./xhr-range-loader.js');
 
 var _xhrRangeLoader2 = _interopRequireDefault(_xhrRangeLoader);
 
-var _websocketLoader = require('./websocket-loader.js');
+var _websocketLoader = _dereq_('./websocket-loader.js');
 
 var _websocketLoader2 = _interopRequireDefault(_websocketLoader);
 
-var _rangeSeekHandler = require('./range-seek-handler.js');
+var _rangeSeekHandler = _dereq_('./range-seek-handler.js');
 
 var _rangeSeekHandler2 = _interopRequireDefault(_rangeSeekHandler);
 
-var _paramSeekHandler = require('./param-seek-handler.js');
+var _paramSeekHandler = _dereq_('./param-seek-handler.js');
 
 var _paramSeekHandler2 = _interopRequireDefault(_paramSeekHandler);
 
-var _exception = require('../utils/exception.js');
+var _exception = _dereq_('../utils/exception.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -6286,7 +6551,7 @@ var IOController = function () {
 
 exports.default = IOController;
 
-},{"../utils/exception.js":40,"../utils/logger.js":41,"./fetch-stream-loader.js":21,"./loader.js":23,"./param-seek-handler.js":24,"./range-seek-handler.js":25,"./speed-sampler.js":26,"./websocket-loader.js":27,"./xhr-moz-chunked-loader.js":28,"./xhr-msstream-loader.js":29,"./xhr-range-loader.js":30}],23:[function(require,module,exports){
+},{"../utils/exception.js":40,"../utils/logger.js":41,"./fetch-stream-loader.js":22,"./loader.js":24,"./param-seek-handler.js":25,"./range-seek-handler.js":26,"./speed-sampler.js":27,"./websocket-loader.js":28,"./xhr-moz-chunked-loader.js":29,"./xhr-msstream-loader.js":30,"./xhr-range-loader.js":31}],24:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6294,9 +6559,25 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.BaseLoader = exports.LoaderErrors = exports.LoaderStatus = undefined;
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      */
 
-var _exception = require('../utils/exception.js');
+var _exception = _dereq_('../utils/exception.js');
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
@@ -6417,7 +6698,7 @@ var BaseLoader = exports.BaseLoader = function () {
     return BaseLoader;
 }();
 
-},{"../utils/exception.js":40}],24:[function(require,module,exports){
+},{"../utils/exception.js":40}],25:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6427,6 +6708,24 @@ Object.defineProperty(exports, "__esModule", {
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 var ParamSeekHandler = function () {
     function ParamSeekHandler(paramStart, paramEnd) {
@@ -6471,7 +6770,7 @@ var ParamSeekHandler = function () {
 
 exports.default = ParamSeekHandler;
 
-},{}],25:[function(require,module,exports){
+},{}],26:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6481,6 +6780,24 @@ Object.defineProperty(exports, "__esModule", {
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 var RangeSeekHandler = function () {
     function RangeSeekHandler(zeroStart) {
@@ -6518,7 +6835,7 @@ var RangeSeekHandler = function () {
 
 exports.default = RangeSeekHandler;
 
-},{}],26:[function(require,module,exports){
+},{}],27:[function(_dereq_,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -6529,8 +6846,25 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-// Utility class to calculate realtime network I/O speed
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
+// Utility class to calculate realtime network I/O speed
 var SpeedSampler = function () {
     function SpeedSampler() {
         _classCallCheck(this, SpeedSampler);
@@ -6612,7 +6946,7 @@ var SpeedSampler = function () {
 
 exports.default = SpeedSampler;
 
-},{}],27:[function(require,module,exports){
+},{}],28:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6623,13 +6957,13 @@ var _get = function get(object, property, receiver) { if (object === null) objec
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-var _logger = require('../utils/logger.js');
+var _logger = _dereq_('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _loader = require('./loader.js');
+var _loader = _dereq_('./loader.js');
 
-var _exception = require('../utils/exception.js');
+var _exception = _dereq_('../utils/exception.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -6637,7 +6971,23 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                */
 
 // For FLV over WebSocket live stream
 var WebSocketLoader = function (_BaseLoader) {
@@ -6767,7 +7117,7 @@ var WebSocketLoader = function (_BaseLoader) {
 
 exports.default = WebSocketLoader;
 
-},{"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":23}],28:[function(require,module,exports){
+},{"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":24}],29:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6780,13 +7130,13 @@ var _get = function get(object, property, receiver) { if (object === null) objec
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-var _logger = require('../utils/logger.js');
+var _logger = _dereq_('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _loader = require('./loader.js');
+var _loader = _dereq_('./loader.js');
 
-var _exception = require('../utils/exception.js');
+var _exception = _dereq_('../utils/exception.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -6794,7 +7144,23 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                */
 
 // For FireFox browser which supports `xhr.responseType = 'moz-chunked-arraybuffer'`
 var MozChunkedLoader = function (_BaseLoader) {
@@ -6975,7 +7341,7 @@ var MozChunkedLoader = function (_BaseLoader) {
 
 exports.default = MozChunkedLoader;
 
-},{"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":23}],29:[function(require,module,exports){
+},{"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":24}],30:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6988,13 +7354,13 @@ var _get = function get(object, property, receiver) { if (object === null) objec
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-var _logger = require('../utils/logger.js');
+var _logger = _dereq_('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _loader = require('./loader.js');
+var _loader = _dereq_('./loader.js');
 
-var _exception = require('../utils/exception.js');
+var _exception = _dereq_('../utils/exception.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -7002,7 +7368,23 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                */
 
 /* Notice: ms-stream may cause IE/Edge browser crash if seek too frequently!!!
  * The browser may crash in wininet.dll. Disable for now.
@@ -7277,7 +7659,7 @@ var MSStreamLoader = function (_BaseLoader) {
 
 exports.default = MSStreamLoader;
 
-},{"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":23}],30:[function(require,module,exports){
+},{"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":24}],31:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7290,17 +7672,17 @@ var _get = function get(object, property, receiver) { if (object === null) objec
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-var _logger = require('../utils/logger.js');
+var _logger = _dereq_('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _speedSampler = require('./speed-sampler.js');
+var _speedSampler = _dereq_('./speed-sampler.js');
 
 var _speedSampler2 = _interopRequireDefault(_speedSampler);
 
-var _loader = require('./loader.js');
+var _loader = _dereq_('./loader.js');
 
-var _exception = require('../utils/exception.js');
+var _exception = _dereq_('../utils/exception.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -7308,7 +7690,23 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 
 function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; } /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                */
 
 // Universal IO Loader, implemented by adding Range header in xhr's request header
 var RangeLoader = function (_BaseLoader) {
@@ -7628,7 +8026,7 @@ var RangeLoader = function (_BaseLoader) {
 
 exports.default = RangeLoader;
 
-},{"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":23,"./speed-sampler.js":26}],31:[function(require,module,exports){
+},{"../utils/exception.js":40,"../utils/logger.js":41,"./loader.js":24,"./speed-sampler.js":27}],32:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7637,45 +8035,61 @@ Object.defineProperty(exports, "__esModule", {
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      */
 
-var _events = require('events');
+var _events = _dereq_('events');
 
 var _events2 = _interopRequireDefault(_events);
 
-var _logger = require('../utils/logger.js');
+var _logger = _dereq_('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _browser = require('../utils/browser.js');
+var _browser = _dereq_('../utils/browser.js');
 
 var _browser2 = _interopRequireDefault(_browser);
 
-var _playerEvents = require('./player-events.js');
+var _playerEvents = _dereq_('./player-events.js');
 
 var _playerEvents2 = _interopRequireDefault(_playerEvents);
 
-var _transmuxer = require('../core/transmuxer.js');
+var _transmuxer = _dereq_('../core/transmuxer.js');
 
 var _transmuxer2 = _interopRequireDefault(_transmuxer);
 
-var _transmuxingEvents = require('../core/transmuxing-events.js');
+var _transmuxingEvents = _dereq_('../core/transmuxing-events.js');
 
 var _transmuxingEvents2 = _interopRequireDefault(_transmuxingEvents);
 
-var _mseController = require('../core/mse-controller.js');
+var _mseController = _dereq_('../core/mse-controller.js');
 
 var _mseController2 = _interopRequireDefault(_mseController);
 
-var _mseEvents = require('../core/mse-events.js');
+var _mseEvents = _dereq_('../core/mse-events.js');
 
 var _mseEvents2 = _interopRequireDefault(_mseEvents);
 
-var _playerErrors = require('./player-errors.js');
+var _playerErrors = _dereq_('./player-errors.js');
 
-var _config = require('../config.js');
+var _config = _dereq_('../config.js');
 
-var _exception = require('../utils/exception.js');
+var _exception = _dereq_('../utils/exception.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -8327,7 +8741,7 @@ var FlvPlayer = function () {
 
 exports.default = FlvPlayer;
 
-},{"../config.js":5,"../core/mse-controller.js":9,"../core/mse-events.js":10,"../core/transmuxer.js":11,"../core/transmuxing-events.js":13,"../utils/browser.js":38,"../utils/exception.js":40,"../utils/logger.js":41,"./player-errors.js":33,"./player-events.js":34,"events":2}],32:[function(require,module,exports){
+},{"../config.js":5,"../core/mse-controller.js":9,"../core/mse-events.js":10,"../core/transmuxer.js":11,"../core/transmuxing-events.js":13,"../utils/browser.js":39,"../utils/exception.js":40,"../utils/logger.js":41,"./player-errors.js":34,"./player-events.js":35,"events":2}],33:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8336,19 +8750,35 @@ Object.defineProperty(exports, "__esModule", {
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      */
 
-var _events = require('events');
+var _events = _dereq_('events');
 
 var _events2 = _interopRequireDefault(_events);
 
-var _playerEvents = require('./player-events.js');
+var _playerEvents = _dereq_('./player-events.js');
 
 var _playerEvents2 = _interopRequireDefault(_playerEvents);
 
-var _config = require('../config.js');
+var _config = _dereq_('../config.js');
 
-var _exception = require('../utils/exception.js');
+var _exception = _dereq_('../utils/exception.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -8602,7 +9032,7 @@ var NativePlayer = function () {
 
 exports.default = NativePlayer;
 
-},{"../config.js":5,"../utils/exception.js":40,"./player-events.js":34,"events":2}],33:[function(require,module,exports){
+},{"../config.js":5,"../utils/exception.js":40,"./player-events.js":35,"events":2}],34:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8610,13 +9040,31 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.ErrorDetails = exports.ErrorTypes = undefined;
 
-var _loader = require('../io/loader.js');
+var _loader = _dereq_('../io/loader.js');
 
-var _demuxErrors = require('../demux/demux-errors.js');
+var _demuxErrors = _dereq_('../demux/demux-errors.js');
 
 var _demuxErrors2 = _interopRequireDefault(_demuxErrors);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 var ErrorTypes = exports.ErrorTypes = {
     NETWORK_ERROR: 'NetworkError',
@@ -8637,23 +9085,41 @@ var ErrorDetails = exports.ErrorDetails = {
     MEDIA_CODEC_UNSUPPORTED: _demuxErrors2.default.CODEC_UNSUPPORTED
 };
 
-},{"../demux/demux-errors.js":16,"../io/loader.js":23}],34:[function(require,module,exports){
+},{"../demux/demux-errors.js":16,"../io/loader.js":24}],35:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
-    value: true
+  value: true
 });
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 var PlayerEvents = {
-    ERROR: 'error',
-    LOADING_COMPLETE: 'loading_complete',
-    RECOVERED_EARLY_EOF: 'recovered_early_eof',
-    MEDIA_INFO: 'media_info',
-    STATISTICS_INFO: 'statistics_info'
+  ERROR: 'error',
+  LOADING_COMPLETE: 'loading_complete',
+  RECOVERED_EARLY_EOF: 'recovered_early_eof',
+  MEDIA_INFO: 'media_info',
+  STATISTICS_INFO: 'statistics_info'
 };
 
 exports.default = PlayerEvents;
 
-},{}],35:[function(require,module,exports){
+},{}],36:[function(_dereq_,module,exports){
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -8664,7 +9130,24 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-// from hls.js/src/helper/aac.js
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * This file is modified from dailymotion's hls.js library (hls.js/src/helper/aac.js)
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 var AAC = function () {
     function AAC() {
@@ -8696,7 +9179,7 @@ var AAC = function () {
 
 exports.default = AAC;
 
-},{}],36:[function(require,module,exports){
+},{}],37:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8707,8 +9190,26 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-//  MP4 boxes generator for ISO BMFF (ISO Base Media File Format, defined in ISO/IEC 14496-12)
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * This file is derived from dailymotion's hls.js library (hls.js/src/remux/mp4-generator.js)
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
+//  MP4 boxes generator for ISO BMFF (ISO Base Media File Format, defined in ISO/IEC 14496-12)
 var MP4 = function () {
     function MP4() {
         _classCallCheck(this, MP4);
@@ -9180,34 +9681,50 @@ MP4.init();
 
 exports.default = MP4;
 
-},{}],37:[function(require,module,exports){
+},{}],38:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      */
 
-var _logger = require('../utils/logger.js');
+var _logger = _dereq_('../utils/logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
-var _mp4Generator = require('./mp4-generator.js');
+var _mp4Generator = _dereq_('./mp4-generator.js');
 
 var _mp4Generator2 = _interopRequireDefault(_mp4Generator);
 
-var _aacSilent = require('./aac-silent.js');
+var _aacSilent = _dereq_('./aac-silent.js');
 
 var _aacSilent2 = _interopRequireDefault(_aacSilent);
 
-var _browser = require('../utils/browser.js');
+var _browser = _dereq_('../utils/browser.js');
 
 var _browser2 = _interopRequireDefault(_browser);
 
-var _mediaSegmentInfo = require('../core/media-segment-info.js');
+var _mediaSegmentInfo = _dereq_('../core/media-segment-info.js');
 
-var _exception = require('../utils/exception.js');
+var _exception = _dereq_('../utils/exception.js');
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -9739,12 +10256,30 @@ var MP4Remuxer = function () {
 
 exports.default = MP4Remuxer;
 
-},{"../core/media-segment-info.js":8,"../utils/browser.js":38,"../utils/exception.js":40,"../utils/logger.js":41,"./aac-silent.js":35,"./mp4-generator.js":36}],38:[function(require,module,exports){
+},{"../core/media-segment-info.js":8,"../utils/browser.js":39,"../utils/exception.js":40,"../utils/logger.js":41,"./aac-silent.js":36,"./mp4-generator.js":37}],39:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 var Browser = {};
 
 function detect() {
@@ -9835,83 +10370,7 @@ detect();
 
 exports.default = Browser;
 
-},{}],39:[function(require,module,exports){
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-    value: true
-});
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var BSearch = function () {
-    function BSearch() {
-        _classCallCheck(this, BSearch);
-    }
-
-    _createClass(BSearch, null, [{
-        key: "search",
-        value: function search(array, value, compare) {
-            if (array.length === 0) {
-                return 0;
-            }
-            if (compare(value, array[0]) < 0) {
-                return 0;
-            }
-            if (compare(value, array[array.length - 1]) >= 0) {
-                return array.length;
-            }
-
-            var mid = 0;
-            var low = 0;
-            var high = array.length;
-
-            while (low < high) {
-                mid = Math.floor((low + high) / 2);
-                var cmp = compare(array[mid], value);
-                if (cmp < 0) {
-                    low = mid + 1;
-                } else if (cmp > 0) {
-                    high = mid;
-                } else {
-                    return mid;
-                }
-            }
-            return low;
-        }
-    }, {
-        key: "insert",
-        value: function insert(array, value, compare) {
-            if (value == undefined) {
-                return -1;
-            }
-            if (compare == undefined) {
-                compare = BSearch.less;
-            }
-            var idx = BSearch.search(array, value, compare);
-            array.splice(idx, 0, value);
-            return idx;
-        }
-    }, {
-        key: "less",
-        value: function less(a, b) {
-            return a - b;
-        }
-    }, {
-        key: "greater",
-        value: function greater(a, b) {
-            return b - a;
-        }
-    }]);
-
-    return BSearch;
-}();
-
-exports.default = BSearch;
-
-},{}],40:[function(require,module,exports){
+},{}],40:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -9925,6 +10384,24 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 var RuntimeException = exports.RuntimeException = function () {
     function RuntimeException(message) {
@@ -10010,7 +10487,7 @@ var NotImplementedException = exports.NotImplementedException = function (_Runti
     return NotImplementedException;
 }(RuntimeException);
 
-},{}],41:[function(require,module,exports){
+},{}],41:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -10020,6 +10497,24 @@ Object.defineProperty(exports, "__esModule", {
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 var Log = function () {
     function Log() {
@@ -10122,20 +10617,36 @@ Log.ENABLE_VERBOSE = true;
 
 exports.default = Log;
 
-},{}],42:[function(require,module,exports){
+},{}],42:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Copyright (C) 2016 Bilibili. All Rights Reserved.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * @author zheng qian <xqq@xqq.im>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Licensed under the Apache License, Version 2.0 (the "License");
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * you may not use this file except in compliance with the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * You may obtain a copy of the License at
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *     http://www.apache.org/licenses/LICENSE-2.0
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      *
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * Unless required by applicable law or agreed to in writing, software
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * distributed under the License is distributed on an "AS IS" BASIS,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * See the License for the specific language governing permissions and
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      * limitations under the License.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      */
 
-var _events = require('events');
+var _events = _dereq_('events');
 
 var _events2 = _interopRequireDefault(_events);
 
-var _logger = require('./logger.js');
+var _logger = _dereq_('./logger.js');
 
 var _logger2 = _interopRequireDefault(_logger);
 
@@ -10277,7 +10788,7 @@ LoggingControl.emitter = new _events2.default();
 
 exports.default = LoggingControl;
 
-},{"./logger.js":41,"events":2}],43:[function(require,module,exports){
+},{"./logger.js":41,"events":2}],43:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -10287,6 +10798,24 @@ Object.defineProperty(exports, "__esModule", {
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 var Polyfill = function () {
     function Polyfill() {
@@ -10325,7 +10854,7 @@ var Polyfill = function () {
             // ES6 Promise (missing support in IE11)
             if (typeof self.Promise !== 'function') {
                 // polyfill() will be called internally during module load
-                require('es6-promise');
+                _dereq_('es6-promise');
             }
         }
     }]);
@@ -10337,13 +10866,30 @@ Polyfill.install();
 
 exports.default = Polyfill;
 
-},{"es6-promise":1}],44:[function(require,module,exports){
+},{"es6-promise":1}],44:[function(_dereq_,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
-// translate from C++ project libWinTF8 (https://github.com/m13253/libWinTF8)
+/*
+ * Copyright (C) 2016 Bilibili. All Rights Reserved.
+ *
+ * This file is derived from C++ project libWinTF8 (https://github.com/m13253/libWinTF8)
+ * @author zheng qian <xqq@xqq.im>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 function checkContinuation(uint8array, start, checkLength) {
     var array = uint8array;
@@ -10409,7 +10955,8 @@ function decodeUTF8(uint8array) {
 
 exports.default = decodeUTF8;
 
-},{}]},{},[20])
+},{}]},{},[21])(21)
+});
 
 
 //# sourceMappingURL=flv.js.map
