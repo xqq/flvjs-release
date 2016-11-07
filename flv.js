@@ -3202,6 +3202,8 @@ var TransmuxingController = function () {
 
         this._pendingSeekTime = null;
         this._pendingResolveSeekPoint = null;
+
+        this._statisticsReporter = null;
     }
 
     _createClass(TransmuxingController, [{
@@ -3210,6 +3212,9 @@ var TransmuxingController = function () {
             this._mediaInfo = null;
             this._mediaDataSource = null;
 
+            if (this._statisticsReporter) {
+                this._disableStatisticsReporter();
+            }
             if (this._ioctl) {
                 this._ioctl.destroy();
                 this._ioctl = null;
@@ -3240,6 +3245,7 @@ var TransmuxingController = function () {
         key: 'start',
         value: function start() {
             this._loadSegment(0);
+            this._enableStatisticsReporter();
         }
     }, {
         key: '_loadSegment',
@@ -3265,6 +3271,7 @@ var TransmuxingController = function () {
         key: 'stop',
         value: function stop() {
             this._internalAbort();
+            this._disableStatisticsReporter();
         }
     }, {
         key: '_internalAbort',
@@ -3280,6 +3287,7 @@ var TransmuxingController = function () {
             // take a rest
             if (this._ioctl && this._ioctl.isWorking()) {
                 this._ioctl.pause();
+                this._disableStatisticsReporter();
             }
         }
     }, {
@@ -3287,6 +3295,7 @@ var TransmuxingController = function () {
         value: function resume() {
             if (this._ioctl && this._ioctl.isPaused()) {
                 this._ioctl.resume();
+                this._enableStatisticsReporter();
             }
         }
     }, {
@@ -3337,8 +3346,11 @@ var TransmuxingController = function () {
                     this._demuxer.timestampBase = this._mediaDataSource.segments[targetSegmentIndex].timestampBase;
                     this._loadSegment(targetSegmentIndex, _keyframe.fileposition);
                     this._pendingResolveSeekPoint = _keyframe.milliseconds;
+                    this._reportSegmentMediaInfo(targetSegmentIndex);
                 }
             }
+
+            this._enableStatisticsReporter();
         }
     }, {
         key: '_searchSegmentIndexContains',
@@ -3416,19 +3428,14 @@ var TransmuxingController = function () {
                 this._mediaInfo.segments = [];
                 this._mediaInfo.segmentCount = this._mediaDataSource.segments.length;
                 Object.setPrototypeOf(this._mediaInfo, _mediaInfo2.default.prototype);
-
-                var exportInfo = Object.assign({}, this._mediaInfo);
-                delete exportInfo.segments;
-                delete exportInfo.keyframesIndex;
-                this._emitter.emit(_transmuxingEvents2.default.MEDIA_INFO, exportInfo);
             }
 
-            if (this._mediaInfo.segments[this._currentSegmentIndex] == undefined) {
-                var segmentInfo = Object.assign({}, mediaInfo);
-                Object.setPrototypeOf(segmentInfo, _mediaInfo2.default.prototype);
+            var segmentInfo = Object.assign({}, mediaInfo);
+            Object.setPrototypeOf(segmentInfo, _mediaInfo2.default.prototype);
+            this._mediaInfo.segments[this._currentSegmentIndex] = segmentInfo;
 
-                this._mediaInfo.segments[this._currentSegmentIndex] = segmentInfo;
-            }
+            // notify mediaInfo update
+            this._reportSegmentMediaInfo(this._currentSegmentIndex);
 
             if (this._pendingSeekTime != null) {
                 Promise.resolve().then(function () {
@@ -3454,6 +3461,7 @@ var TransmuxingController = function () {
                 this._loadSegment(nextSegmentIndex);
             } else {
                 this._emitter.emit(_transmuxingEvents2.default.LOADING_COMPLETE);
+                this._disableStatisticsReporter();
             }
         }
     }, {
@@ -3466,6 +3474,7 @@ var TransmuxingController = function () {
         value: function _onIOException(type, info) {
             _logger2.default.e(this.TAG, 'IOException: type = ' + type + ', code = ' + info.code + ', msg = ' + info.msg);
             this._emitter.emit(_transmuxingEvents2.default.IO_ERROR, type, info);
+            this._disableStatisticsReporter();
         }
     }, {
         key: '_onDemuxException',
@@ -3487,6 +3496,7 @@ var TransmuxingController = function () {
             }
             this._emitter.emit(_transmuxingEvents2.default.MEDIA_SEGMENT, type, mediaSegment);
 
+            // Resolve pending seekPoint
             if (this._pendingResolveSeekPoint != null && type === 'video') {
                 var syncPoints = mediaSegment.info.syncPoints;
                 var seekpoint = this._pendingResolveSeekPoint;
@@ -3500,15 +3510,40 @@ var TransmuxingController = function () {
 
                 this._emitter.emit(_transmuxingEvents2.default.RECOMMEND_SEEKPOINT, seekpoint);
             }
-
-            if (type === 'video') {
-                this._reportStatisticsInfo();
+        }
+    }, {
+        key: '_enableStatisticsReporter',
+        value: function _enableStatisticsReporter() {
+            if (this._statisticsReporter == null) {
+                this._statisticsReporter = self.setInterval(this._reportStatisticsInfo.bind(this), this._config.statisticsInfoReportInterval);
             }
+        }
+    }, {
+        key: '_disableStatisticsReporter',
+        value: function _disableStatisticsReporter() {
+            if (this._statisticsReporter) {
+                self.clearInterval(this._statisticsReporter);
+                this._statisticsReporter = null;
+            }
+        }
+    }, {
+        key: '_reportSegmentMediaInfo',
+        value: function _reportSegmentMediaInfo(segmentIndex) {
+            var segmentInfo = this._mediaInfo.segments[segmentIndex];
+            var exportInfo = Object.assign({}, segmentInfo);
+
+            exportInfo.duration = this._mediaInfo.duration;
+            exportInfo.segmentCount = this._mediaInfo.segmentCount;
+            delete exportInfo.segments;
+            delete exportInfo.keyframesIndex;
+
+            this._emitter.emit(_transmuxingEvents2.default.MEDIA_INFO, exportInfo);
         }
     }, {
         key: '_reportStatisticsInfo',
         value: function _reportStatisticsInfo() {
             var info = {};
+
             info.url = this._ioctl.currentUrl;
             info.speed = this._ioctl.currentSpeed;
             info.loaderType = this._ioctl.loaderType;
@@ -5958,7 +5993,6 @@ var IOController = function () {
         this._fullRequestFlag = false;
         this._currentRange = null;
 
-        this._speed = 0;
         this._speedNormalized = 0;
         this._speedSampler = new _speedSampler2.default();
         this._speedNormalizeList = [64, 128, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096];
@@ -6146,7 +6180,6 @@ var IOController = function () {
             var requestRange = { from: bytes, to: -1 };
             this._currentRange = { from: requestRange.from, to: -1 };
 
-            this._speed = 0;
             this._speedSampler.reset();
             this._stashSize = this._stashInitialSize;
             this._createLoader();
@@ -6281,7 +6314,6 @@ var IOController = function () {
             // adjust stash buffer size according to network speed dynamically
             var KBps = this._speedSampler.lastSecondKBps;
             if (KBps !== 0) {
-                this._speed = KBps;
                 var normalized = this._normalizeSpeed(KBps);
                 if (this._speedNormalized !== normalized) {
                     this._speedNormalized = normalized;
@@ -6534,10 +6566,10 @@ var IOController = function () {
         key: 'currentSpeed',
         get: function get() {
             if (this._loaderClass === _xhrRangeLoader2.default) {
-                // this._speed is inaccuracy if loader is RangeLoader
+                // SpeedSampler is inaccuracy if loader is RangeLoader
                 return this._loader.currentSpeed;
             }
-            return this._speed;
+            return this._speedSampler.lastSecondKBps;
         }
     }, {
         key: 'loaderType',
@@ -6913,12 +6945,17 @@ var SpeedSampler = function () {
     }, {
         key: "currentKBps",
         get: function get() {
+            this.addBytes(0);
+
             var durationSeconds = (this._now() - this._lastCheckpoint) / 1000;
+            if (durationSeconds == 0) durationSeconds = 1;
             return this._intervalBytes / durationSeconds / 1024;
         }
     }, {
         key: "lastSecondKBps",
         get: function get() {
+            this.addBytes(0);
+
             if (this._lastSecondBytes !== 0) {
                 return this._lastSecondBytes / 1024;
             } else {
@@ -7739,7 +7776,6 @@ var RangeLoader = function (_BaseLoader) {
 
         _this._chunkSizeKBList = [128, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 5120, 6144, 7168, 8192];
         _this._currentChunkSizeKB = 384;
-        _this._currentSpeed = 0;
         _this._currentSpeedNormalized = 0;
         _this._zeroSpeedChunkCount = 0;
 
@@ -7960,7 +7996,6 @@ var RangeLoader = function (_BaseLoader) {
             }
 
             if (KBps !== 0) {
-                this._currentSpeed = KBps;
                 var normalized = this._normalizeSpeed(KBps);
                 if (this._currentSpeedNormalized !== normalized) {
                     this._currentSpeedNormalized = normalized;
@@ -8017,7 +8052,7 @@ var RangeLoader = function (_BaseLoader) {
     }, {
         key: 'currentSpeed',
         get: function get() {
-            return this._currentSpeed;
+            return this._speedSampler.lastSecondKBps;
         }
     }]);
 
@@ -8133,10 +8168,7 @@ var FlvPlayer = function () {
         this._pendingSeekTime = null; // in seconds
         this._requestSetTime = false;
         this._seekpointRecord = null;
-        this._statisticsReporter = null;
         this._progressChecker = null;
-
-        this._hasStatisticsListener = false;
 
         this._mediaDataSource = mediaDataSource;
         this._mediaElement = null;
@@ -8189,14 +8221,10 @@ var FlvPlayer = function () {
                     });
                 }
             } else if (event === _playerEvents2.default.STATISTICS_INFO) {
-                this._hasStatisticsListener = true;
                 if (this._statisticsInfo != null) {
                     Promise.resolve().then(function () {
                         _this._emitter.emit(_playerEvents2.default.STATISTICS_INFO, _this.statisticsInfo);
                     });
-                }
-                if (this._statisticsReporter == null) {
-                    this._statisticsReporter = window.setInterval(this._reportStatisticsInfo.bind(this), this._config.statisticsInfoReportInterval);
                 }
             }
             this._emitter.addListener(event, listener);
@@ -8204,13 +8232,6 @@ var FlvPlayer = function () {
     }, {
         key: 'off',
         value: function off(event, listener) {
-            if (event === _playerEvents2.default.STATISTICS_INFO) {
-                this._hasStatisticsListener = false;
-                if (this._statisticsReporter != null) {
-                    window.clearInterval(this._statisticsReporter);
-                    this._statisticsReporter = null;
-                }
-            }
             this._emitter.removeListener(event, listener);
         }
     }, {
@@ -8303,12 +8324,6 @@ var FlvPlayer = function () {
             this._transmuxer.on(_transmuxingEvents2.default.MEDIA_SEGMENT, function (type, ms) {
                 _this3._msectl.appendMediaSegment(ms);
 
-                if (_this3._hasStatisticsListener && _this3._statisticsReporter == null) {
-                    if (_this3._progressChecker == null) {
-                        _this3._statisticsReporter = window.setInterval(_this3._reportStatisticsInfo.bind(_this3), _this3._config.statisticsInfoReportInterval);
-                    }
-                }
-
                 // lazyLoad check
                 if (_this3._config.lazyLoad && !_this3._config.isLive) {
                     var currentTime = _this3._mediaElement.currentTime;
@@ -8322,10 +8337,6 @@ var FlvPlayer = function () {
             });
             this._transmuxer.on(_transmuxingEvents2.default.LOADING_COMPLETE, function () {
                 _this3._msectl.endOfStream();
-                if (_this3._statisticsReporter != null) {
-                    window.clearInterval(_this3._statisticsReporter);
-                    _this3._statisticsReporter = null;
-                }
                 _this3._emitter.emit(_playerEvents2.default.LOADING_COMPLETE);
             });
             this._transmuxer.on(_transmuxingEvents2.default.RECOVERED_EARLY_EOF, function () {
@@ -8339,10 +8350,11 @@ var FlvPlayer = function () {
             });
             this._transmuxer.on(_transmuxingEvents2.default.MEDIA_INFO, function (mediaInfo) {
                 _this3._mediaInfo = mediaInfo;
-                _this3._emitter.emit(_playerEvents2.default.MEDIA_INFO, mediaInfo);
+                _this3._emitter.emit(_playerEvents2.default.MEDIA_INFO, Object.assign({}, mediaInfo));
             });
             this._transmuxer.on(_transmuxingEvents2.default.STATISTICS_INFO, function (statInfo) {
                 _this3._statisticsInfo = _this3._fillStatisticsInfo(statInfo);
+                _this3._emitter.emit(_playerEvents2.default.STATISTICS_INFO, Object.assign({}, _this3._statisticsInfo));
             });
             this._transmuxer.on(_transmuxingEvents2.default.RECOMMEND_SEEKPOINT, function (milliseconds) {
                 if (_this3._mediaElement && !_this3._config.accurateSeek) {
@@ -8356,10 +8368,6 @@ var FlvPlayer = function () {
     }, {
         key: 'unload',
         value: function unload() {
-            if (this._statisticsReporter != null) {
-                window.clearInterval(this._statisticsReporter);
-                this._statisticsReporter = null;
-            }
             if (this._mediaElement) {
                 this._mediaElement.pause();
             }
@@ -8387,6 +8395,10 @@ var FlvPlayer = function () {
         value: function _fillStatisticsInfo(statInfo) {
             statInfo.playerType = this._type;
 
+            if (!(this._mediaElement instanceof HTMLVideoElement)) {
+                return statInfo;
+            }
+
             var hasQualityInfo = true;
             var decoded = 0;
             var dropped = 0;
@@ -8408,13 +8420,6 @@ var FlvPlayer = function () {
             }
 
             return statInfo;
-        }
-    }, {
-        key: '_reportStatisticsInfo',
-        value: function _reportStatisticsInfo() {
-            if (this._statisticsInfo != null) {
-                this._emitter.emit(_playerEvents2.default.STATISTICS_INFO, this.statisticsInfo);
-            }
         }
     }, {
         key: '_onmseUpdateEnd',
@@ -8456,11 +8461,6 @@ var FlvPlayer = function () {
         value: function _suspendTransmuxer() {
             if (this._transmuxer) {
                 this._transmuxer.pause();
-
-                if (this._statisticsReporter != null) {
-                    window.clearInterval(this._statisticsReporter);
-                    this._statisticsReporter = null;
-                }
 
                 if (this._progressChecker == null) {
                     this._progressChecker = window.setInterval(this._checkProgressAndResume.bind(this), 1000);
@@ -8985,13 +8985,16 @@ var NativePlayer = function () {
     }, {
         key: 'mediaInfo',
         get: function get() {
+            var mediaPrefix = this._mediaElement instanceof HTMLAudioElement ? 'audio/' : 'video/';
             var info = {
-                mimeType: 'video/' + this._mediaDataSource.type
+                mimeType: mediaPrefix + this._mediaDataSource.type
             };
             if (this._mediaElement) {
                 info.duration = Math.floor(this._mediaElement.duration * 1000);
-                info.width = this._mediaElement.videoWidth;
-                info.height = this._mediaElement.videoHeight;
+                if (this._mediaElement instanceof HTMLVideoElement) {
+                    info.width = this._mediaElement.videoWidth;
+                    info.height = this._mediaElement.videoHeight;
+                }
             }
             return info;
         }
@@ -9002,6 +9005,10 @@ var NativePlayer = function () {
                 playerType: this._type,
                 url: this._mediaDataSource.url
             };
+
+            if (!(this._mediaElement instanceof HTMLVideoElement)) {
+                return info;
+            }
 
             var hasQualityInfo = true;
             var decoded = 0;
