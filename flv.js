@@ -2330,7 +2330,7 @@ var MSEController = function () {
     function MSEController() {
         _classCallCheck(this, MSEController);
 
-        this.TAG = this.constructor.name;
+        this.TAG = 'MSEController';
 
         this._emitter = new _events2.default();
 
@@ -2833,7 +2833,7 @@ var Transmuxer = function () {
     function Transmuxer(mediaDataSource, config) {
         _classCallCheck(this, Transmuxer);
 
-        this.TAG = this.constructor.name;
+        this.TAG = 'Transmuxer';
         this._emitter = new _events2.default();
 
         if (config.enableWorker && typeof Worker !== 'undefined') {
@@ -3156,7 +3156,7 @@ var TransmuxingController = function () {
     function TransmuxingController(mediaDataSource, config) {
         _classCallCheck(this, TransmuxingController);
 
-        this.TAG = this.constructor.name;
+        this.TAG = 'TransmuxingController';
         this._emitter = new _events2.default();
 
         this._config = config;
@@ -4143,7 +4143,7 @@ var ExpGolomb = function () {
     function ExpGolomb(uint8array) {
         _classCallCheck(this, ExpGolomb);
 
-        this.TAG = this.constructor.name;
+        this.TAG = 'ExpGolomb';
 
         this._buffer = uint8array;
         this._buffer_index = 0;
@@ -4316,7 +4316,7 @@ var FLVDemuxer = function () {
     function FLVDemuxer(probeData, config) {
         _classCallCheck(this, FLVDemuxer);
 
-        this.TAG = this.constructor.name;
+        this.TAG = 'FLVDemuxer';
 
         this._config = config;
 
@@ -5716,7 +5716,7 @@ var FetchStreamLoader = function (_BaseLoader) {
 
         var _this = _possibleConstructorReturn(this, (FetchStreamLoader.__proto__ || Object.getPrototypeOf(FetchStreamLoader)).call(this, 'fetch-stream-loader'));
 
-        _this.TAG = _this.constructor.name;
+        _this.TAG = 'FetchStreamLoader';
 
         _this._seekHandler = seekHandler;
         _this._needStash = true;
@@ -5958,7 +5958,7 @@ var IOController = function () {
     function IOController(dataSource, config, extraData) {
         _classCallCheck(this, IOController);
 
-        this.TAG = this.constructor.name;
+        this.TAG = 'IOController';
 
         this._config = config;
         this._extraData = extraData;
@@ -7046,7 +7046,7 @@ var WebSocketLoader = function (_BaseLoader) {
 
         var _this = _possibleConstructorReturn(this, (WebSocketLoader.__proto__ || Object.getPrototypeOf(WebSocketLoader)).call(this, 'websocket-loader'));
 
-        _this.TAG = _this.constructor.name;
+        _this.TAG = 'WebSocketLoader';
 
         _this._needStash = true;
 
@@ -7224,7 +7224,7 @@ var MozChunkedLoader = function (_BaseLoader) {
 
         var _this = _possibleConstructorReturn(this, (MozChunkedLoader.__proto__ || Object.getPrototypeOf(MozChunkedLoader)).call(this, 'xhr-moz-chunked-loader'));
 
-        _this.TAG = _this.constructor.name;
+        _this.TAG = 'MozChunkedLoader';
 
         _this._seekHandler = seekHandler;
         _this._needStash = true;
@@ -7461,7 +7461,7 @@ var MSStreamLoader = function (_BaseLoader) {
 
         var _this = _possibleConstructorReturn(this, (MSStreamLoader.__proto__ || Object.getPrototypeOf(MSStreamLoader)).call(this, 'xhr-msstream-loader'));
 
-        _this.TAG = _this.constructor.name;
+        _this.TAG = 'MSStreamLoader';
 
         _this._seekHandler = seekHandler;
         _this._needStash = true;
@@ -7769,7 +7769,7 @@ var RangeLoader = function (_BaseLoader) {
 
         var _this = _possibleConstructorReturn(this, (RangeLoader.__proto__ || Object.getPrototypeOf(RangeLoader)).call(this, 'xhr-range-loader'));
 
-        _this.TAG = _this.constructor.name;
+        _this.TAG = 'RangeLoader';
 
         _this._seekHandler = seekHandler;
         _this._needStash = false;
@@ -8134,7 +8134,7 @@ var FlvPlayer = function () {
     function FlvPlayer(mediaDataSource, config) {
         _classCallCheck(this, FlvPlayer);
 
-        this.TAG = this.constructor.name;
+        this.TAG = 'FlvPlayer';
         this._type = 'FlvPlayer';
         this._emitter = new _events2.default();
 
@@ -8789,7 +8789,7 @@ var NativePlayer = function () {
     function NativePlayer(mediaDataSource, config) {
         _classCallCheck(this, NativePlayer);
 
-        this.TAG = this.constructor.name;
+        this.TAG = 'NativePlayer';
         this._type = 'NativePlayer';
         this._emitter = new _events2.default();
 
@@ -9742,7 +9742,7 @@ var MP4Remuxer = function () {
     function MP4Remuxer(config) {
         _classCallCheck(this, MP4Remuxer);
 
-        this.TAG = this.constructor.name;
+        this.TAG = 'MP4Remuxer';
 
         this._config = config;
         this._isLive = config.isLive === true ? true : false;
@@ -10860,8 +10860,7 @@ var Polyfill = function () {
 
             // ES6 Promise (missing support in IE11)
             if (typeof self.Promise !== 'function') {
-                // polyfill() will be called internally during module load
-                _dereq_('es6-promise');
+                _dereq_('es6-promise').polyfill();
             }
         }
     }]);
