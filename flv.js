@@ -3301,10 +3301,7 @@ var TransmuxingController = function () {
     }, {
         key: 'seek',
         value: function seek(milliseconds) {
-            if (this._mediaInfo == null) {
-                return;
-            }
-            if (!this._mediaInfo.isSeekable()) {
+            if (this._mediaInfo == null || !this._mediaInfo.isSeekable()) {
                 return;
             }
 
@@ -3343,6 +3340,7 @@ var TransmuxingController = function () {
                     this._internalAbort();
                     this._remuxer.seek(milliseconds);
                     this._remuxer.insertDiscontinuity();
+                    this._demuxer.resetMediaInfo();
                     this._demuxer.timestampBase = this._mediaDataSource.segments[targetSegmentIndex].timestampBase;
                     this._loadSegment(targetSegmentIndex, _keyframe.fileposition);
                     this._pendingResolveSeekPoint = _keyframe.milliseconds;
@@ -4388,6 +4386,11 @@ var FLVDemuxer = function () {
 
         // prototype: function(type: string, metadata: any): void
 
+    }, {
+        key: 'resetMediaInfo',
+        value: function resetMediaInfo() {
+            this._mediaInfo = new _mediaInfo2.default();
+        }
     }, {
         key: '_isInitialMetadataDispatched',
         value: function _isInitialMetadataDispatched() {
