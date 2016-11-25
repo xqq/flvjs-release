@@ -5633,6 +5633,14 @@ flvjs.FlvPlayer = _flvPlayer2.default;
 flvjs.NativePlayer = _nativePlayer2.default;
 flvjs.LoggingControl = _loggingControl2.default;
 
+Object.defineProperty(flvjs, 'version', {
+    enumerable: true,
+    get: function get() {
+        // replaced by browserify-versionify transform
+        return '1.1.0';
+    }
+});
+
 exports.default = flvjs;
 
 },{"./core/features.js":6,"./player/flv-player.js":32,"./player/native-player.js":33,"./player/player-errors.js":34,"./player/player-events.js":35,"./utils/exception.js":40,"./utils/logging-control.js":42,"./utils/polyfill.js":43}],21:[function(_dereq_,module,exports){
@@ -7126,7 +7134,33 @@ var WebSocketLoader = function (_BaseLoader) {
     }, {
         key: '_onWebSocketMessage',
         value: function _onWebSocketMessage(e) {
-            var chunk = e.data;
+            var _this2 = this;
+
+            if (e.data instanceof ArrayBuffer) {
+                this._dispatchArrayBuffer(e.data);
+            } else if (e.data instanceof Blob) {
+                (function () {
+                    var reader = new FileReader();
+                    reader.onload = function () {
+                        _this2._dispatchArrayBuffer(reader.result);
+                    };
+                    reader.readAsArrayBuffer(e.data);
+                })();
+            } else {
+                this._status = _loader.LoaderStatus.kError;
+                var info = { code: -1, msg: 'Unsupported WebSocket message type: ' + e.data.constructor.name };
+
+                if (this._onError) {
+                    this._onError(_loader.LoaderErrors.EXCEPTION, info);
+                } else {
+                    throw new _exception.RuntimeException(info.msg);
+                }
+            }
+        }
+    }, {
+        key: '_dispatchArrayBuffer',
+        value: function _dispatchArrayBuffer(arraybuffer) {
+            var chunk = arraybuffer;
             var byteStart = this._receivedLength;
             this._receivedLength += chunk.byteLength;
 
