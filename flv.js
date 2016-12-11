@@ -1762,6 +1762,7 @@ var defaultConfig = exports.defaultConfig = {
 
     lazyLoad: true,
     lazyLoadMaxDuration: 3 * 60,
+    lazyLoadRecoverDuration: 30,
     deferLoadAfterSourceOpen: true,
 
     statisticsInfoReportInterval: 600,
@@ -1771,7 +1772,8 @@ var defaultConfig = exports.defaultConfig = {
     seekParamStart: 'bstart',
     seekParamEnd: 'bend',
     rangeLoadZeroStart: false,
-    customSeekHandler: undefined
+    customSeekHandler: undefined,
+    reuseRedirectedURL: false
 };
 
 function createDefaultConfig() {
@@ -3257,6 +3259,7 @@ var TransmuxingController = function () {
             ioctl.onError = this._onIOException.bind(this);
             ioctl.onSeeked = this._onIOSeeked.bind(this);
             ioctl.onComplete = this._onIOComplete.bind(this);
+            ioctl.onRedirect = this._onIORedirect.bind(this);
             ioctl.onRecoveredEarlyEof = this._onIORecoveredEarlyEof.bind(this);
 
             if (optionalFrom) {
@@ -3463,6 +3466,12 @@ var TransmuxingController = function () {
             }
         }
     }, {
+        key: '_onIORedirect',
+        value: function _onIORedirect(redirectedURL) {
+            var segmentIndex = this._ioctl.extraData;
+            this._mediaDataSource.segments[segmentIndex].redirectedURL = redirectedURL;
+        }
+    }, {
         key: '_onIORecoveredEarlyEof',
         value: function _onIORecoveredEarlyEof() {
             this._emitter.emit(_transmuxingEvents2.default.RECOVERED_EARLY_EOF);
@@ -3542,7 +3551,12 @@ var TransmuxingController = function () {
         value: function _reportStatisticsInfo() {
             var info = {};
 
-            info.url = this._ioctl.currentUrl;
+            info.url = this._ioctl.currentURL;
+            info.hasRedirect = this._ioctl.hasRedirect;
+            if (info.hasRedirect) {
+                info.redirectedURL = this._ioctl.currentRedirectedURL;
+            }
+
             info.speed = this._ioctl.currentSpeed;
             info.loaderType = this._ioctl.loaderType;
             info.currentSegmentIndex = this._currentSegmentIndex;
@@ -5722,7 +5736,7 @@ var FetchStreamLoader = function (_BaseLoader) {
         }
     }]);
 
-    function FetchStreamLoader(seekHandler) {
+    function FetchStreamLoader(seekHandler, config) {
         _classCallCheck(this, FetchStreamLoader);
 
         var _this = _possibleConstructorReturn(this, (FetchStreamLoader.__proto__ || Object.getPrototypeOf(FetchStreamLoader)).call(this, 'fetch-stream-loader'));
@@ -5730,6 +5744,7 @@ var FetchStreamLoader = function (_BaseLoader) {
         _this.TAG = 'FetchStreamLoader';
 
         _this._seekHandler = seekHandler;
+        _this._config = config;
         _this._needStash = true;
 
         _this._requestAbort = false;
@@ -5754,7 +5769,12 @@ var FetchStreamLoader = function (_BaseLoader) {
             this._dataSource = dataSource;
             this._range = range;
 
-            var seekConfig = this._seekHandler.getConfig(dataSource.url, range);
+            var sourceURL = dataSource.url;
+            if (this._config.reuseRedirectedURL && dataSource.redirectedURL != undefined) {
+                sourceURL = dataSource.redirectedURL;
+            }
+
+            var seekConfig = this._seekHandler.getConfig(sourceURL, range);
 
             var headers = new self.Headers();
 
@@ -5767,7 +5787,6 @@ var FetchStreamLoader = function (_BaseLoader) {
                 }
             }
 
-            var url = seekConfig.url;
             var params = {
                 method: 'GET',
                 headers: headers,
@@ -5787,13 +5806,20 @@ var FetchStreamLoader = function (_BaseLoader) {
             }
 
             this._status = _loader.LoaderStatus.kConnecting;
-            self.fetch(url, params).then(function (res) {
+            self.fetch(seekConfig.url, params).then(function (res) {
                 if (_this2._requestAbort) {
                     _this2._requestAbort = false;
                     _this2._status = _loader.LoaderStatus.kIdle;
                     return;
                 }
                 if (res.ok && res.status >= 200 && res.status <= 299) {
+                    if (res.url !== seekConfig.url) {
+                        if (_this2._onURLRedirect) {
+                            var redirectedURL = _this2._seekHandler.removeURLParameters(res.url);
+                            _this2._onURLRedirect(redirectedURL);
+                        }
+                    }
+
                     var lengthHeader = res.headers.get('Content-Length');
                     if (lengthHeader != null) {
                         _this2._contentLength = parseInt(lengthHeader);
@@ -5803,6 +5829,7 @@ var FetchStreamLoader = function (_BaseLoader) {
                             }
                         }
                     }
+
                     return _this2._pump.call(_this2, res.body.getReader());
                 } else {
                     _this2._status = _loader.LoaderStatus.kError;
@@ -5975,9 +6002,6 @@ var IOController = function () {
         this._extraData = extraData;
 
         this._stashInitialSize = 1024 * 384; // default initial size: 384KB
-        if (config.isLive === true) {
-            this._stashInitialSize = 1024 * 512; // default live initial size: 512KB
-        }
         if (config.stashInitialSize != undefined && config.stashInitialSize > 0) {
             // apply from config
             this._stashInitialSize = config.stashInitialSize;
@@ -6003,6 +6027,7 @@ var IOController = function () {
         this._totalLength = this._refTotalLength;
         this._fullRequestFlag = false;
         this._currentRange = null;
+        this._redirectedURL = null;
 
         this._speedNormalized = 0;
         this._speedSampler = new _speedSampler2.default();
@@ -6017,6 +6042,7 @@ var IOController = function () {
         this._onSeeked = null;
         this._onError = null;
         this._onComplete = null;
+        this._onRedirect = null;
         this._onRecoveredEarlyEof = null;
 
         this._selectSeekHandler();
@@ -6045,6 +6071,7 @@ var IOController = function () {
             this._onSeeked = null;
             this._onError = null;
             this._onComplete = null;
+            this._onRedirect = null;
             this._onRecoveredEarlyEof = null;
 
             this._extraData = null;
@@ -6098,11 +6125,12 @@ var IOController = function () {
     }, {
         key: '_createLoader',
         value: function _createLoader() {
-            this._loader = new this._loaderClass(this._seekHandler);
+            this._loader = new this._loaderClass(this._seekHandler, this._config);
             if (this._loader.needStashBuffer === false) {
                 this._enableStash = false;
             }
             this._loader.onContentLengthKnown = this._onContentLengthKnown.bind(this);
+            this._loader.onURLRedirect = this._onURLRedirect.bind(this);
             this._loader.onDataArrival = this._onLoaderChunkArrival.bind(this);
             this._loader.onComplete = this._onLoaderComplete.bind(this);
             this._loader.onError = this._onLoaderError.bind(this);
@@ -6294,6 +6322,14 @@ var IOController = function () {
         value: function _dispatchChunks(chunks, byteStart) {
             this._currentRange.to = byteStart + chunks.byteLength - 1;
             return this._onDataArrival(chunks, byteStart);
+        }
+    }, {
+        key: '_onURLRedirect',
+        value: function _onURLRedirect(redirectedURL) {
+            this._redirectedURL = redirectedURL;
+            if (this._onRedirect) {
+                this._onRedirect(redirectedURL);
+            }
         }
     }, {
         key: '_onContentLengthKnown',
@@ -6558,6 +6594,14 @@ var IOController = function () {
             this._onComplete = callback;
         }
     }, {
+        key: 'onRedirect',
+        get: function get() {
+            return this._onRedirect;
+        },
+        set: function set(callback) {
+            this._onRedirect = callback;
+        }
+    }, {
         key: 'onRecoveredEarlyEof',
         get: function get() {
             return this._onRecoveredEarlyEof;
@@ -6566,9 +6610,19 @@ var IOController = function () {
             this._onRecoveredEarlyEof = callback;
         }
     }, {
-        key: 'currentUrl',
+        key: 'currentURL',
         get: function get() {
             return this._dataSource.url;
+        }
+    }, {
+        key: 'hasRedirect',
+        get: function get() {
+            return this._redirectedURL != null || this._dataSource.redirectedURL != undefined;
+        }
+    }, {
+        key: 'currentRedirectedURL',
+        get: function get() {
+            return this._redirectedURL || this._dataSource.redirectedURL;
         }
 
         // in KB/s
@@ -6643,6 +6697,7 @@ var LoaderErrors = exports.LoaderErrors = {
 
 /* Loader has callbacks which have following prototypes:
  *     function onContentLengthKnown(contentLength: number): void
+ *     function onURLRedirect(url: string): void
  *     function onDataArrival(chunk: ArrayBuffer, byteStart: number, receivedLength: number): void
  *     function onError(errorType: number, errorInfo: {code: number, msg: string}): void
  *     function onComplete(rangeFrom: number, rangeTo: number): void
@@ -6657,6 +6712,7 @@ var BaseLoader = exports.BaseLoader = function () {
         this._needStash = false;
         // callbacks
         this._onContentLengthKnown = null;
+        this._onURLRedirect = null;
         this._onDataArrival = null;
         this._onError = null;
         this._onComplete = null;
@@ -6667,6 +6723,7 @@ var BaseLoader = exports.BaseLoader = function () {
         value: function destroy() {
             this._status = LoaderStatus.kIdle;
             this._onContentLengthKnown = null;
+            this._onURLRedirect = null;
             this._onDataArrival = null;
             this._onError = null;
             this._onComplete = null;
@@ -6711,6 +6768,14 @@ var BaseLoader = exports.BaseLoader = function () {
         },
         set: function set(callback) {
             this._onContentLengthKnown = callback;
+        }
+    }, {
+        key: 'onURLRedirect',
+        get: function get() {
+            return this._onURLRedirect;
+        },
+        set: function set(callback) {
+            this._onURLRedirect = callback;
         }
     }, {
         key: 'onDataArrival',
@@ -6806,6 +6871,37 @@ var ParamSeekHandler = function () {
                 headers: {}
             };
         }
+    }, {
+        key: 'removeURLParameters',
+        value: function removeURLParameters(seekedURL) {
+            var baseURL = seekedURL.split('?')[0];
+            var params = undefined;
+
+            var queryIndex = seekedURL.indexOf('?');
+            if (queryIndex !== -1) {
+                params = seekedURL.substring(queryIndex + 1);
+            }
+
+            var resultParams = '';
+
+            if (params != undefined && params.length > 0) {
+                var pairs = params.split('&');
+
+                for (var i = 0; i < pairs.length; i++) {
+                    var pair = pairs[i].split('=');
+                    var requireAnd = i > 0;
+
+                    if (pair[0] !== this._startName && pair[0] !== this._endName) {
+                        if (requireAnd) {
+                            resultParams += '&';
+                        }
+                        resultParams += pairs[i];
+                    }
+                }
+            }
+
+            return resultParams.length === 0 ? baseURL : baseURL + '?' + resultParams;
+        }
     }]);
 
     return ParamSeekHandler;
@@ -6870,6 +6966,11 @@ var RangeSeekHandler = function () {
                 url: url,
                 headers: headers
             };
+        }
+    }, {
+        key: 'removeURLParameters',
+        value: function removeURLParameters(seekedURL) {
+            return seekedURL;
         }
     }]);
 
@@ -7256,7 +7357,7 @@ var MozChunkedLoader = function (_BaseLoader) {
         }
     }]);
 
-    function MozChunkedLoader(seekHandler) {
+    function MozChunkedLoader(seekHandler, config) {
         _classCallCheck(this, MozChunkedLoader);
 
         var _this = _possibleConstructorReturn(this, (MozChunkedLoader.__proto__ || Object.getPrototypeOf(MozChunkedLoader)).call(this, 'xhr-moz-chunked-loader'));
@@ -7264,6 +7365,7 @@ var MozChunkedLoader = function (_BaseLoader) {
         _this.TAG = 'MozChunkedLoader';
 
         _this._seekHandler = seekHandler;
+        _this._config = config;
         _this._needStash = true;
 
         _this._xhr = null;
@@ -7294,7 +7396,13 @@ var MozChunkedLoader = function (_BaseLoader) {
             this._dataSource = dataSource;
             this._range = range;
 
-            var seekConfig = this._seekHandler.getConfig(dataSource.url, range);
+            var sourceURL = dataSource.url;
+            if (this._config.reuseRedirectedURL && dataSource.redirectedURL != undefined) {
+                sourceURL = dataSource.redirectedURL;
+            }
+
+            var seekConfig = this._seekHandler.getConfig(sourceURL, range);
+            this._requestURL = seekConfig.url;
 
             var xhr = this._xhr = new XMLHttpRequest();
             xhr.open('GET', seekConfig.url, true);
@@ -7340,6 +7448,13 @@ var MozChunkedLoader = function (_BaseLoader) {
 
             if (xhr.readyState === 2) {
                 // HEADERS_RECEIVED
+                if (xhr.responseURL != undefined && xhr.responseURL !== this._requestURL) {
+                    if (this._onURLRedirect) {
+                        var redirectedURL = this._seekHandler.removeURLParameters(xhr.responseURL);
+                        this._onURLRedirect(redirectedURL);
+                    }
+                }
+
                 if (xhr.status !== 0 && (xhr.status < 200 || xhr.status > 299)) {
                     this._status = _loader.LoaderStatus.kError;
                     if (this._onError) {
@@ -7493,7 +7608,7 @@ var MSStreamLoader = function (_BaseLoader) {
         }
     }]);
 
-    function MSStreamLoader(seekHandler) {
+    function MSStreamLoader(seekHandler, config) {
         _classCallCheck(this, MSStreamLoader);
 
         var _this = _possibleConstructorReturn(this, (MSStreamLoader.__proto__ || Object.getPrototypeOf(MSStreamLoader)).call(this, 'xhr-msstream-loader'));
@@ -7501,6 +7616,7 @@ var MSStreamLoader = function (_BaseLoader) {
         _this.TAG = 'MSStreamLoader';
 
         _this._seekHandler = seekHandler;
+        _this._config = config;
         _this._needStash = true;
 
         _this._xhr = null;
@@ -7508,6 +7624,9 @@ var MSStreamLoader = function (_BaseLoader) {
 
         _this._totalRange = null;
         _this._currentRange = null;
+
+        _this._currentRequestURL = null;
+        _this._currentRedirectedURL = null;
 
         _this._contentLength = null;
         _this._receivedLength = 0;
@@ -7552,7 +7671,17 @@ var MSStreamLoader = function (_BaseLoader) {
                 this._currentRange = range;
             }
 
-            var seekConfig = this._seekHandler.getConfig(dataSource.url, range);
+            var sourceURL = dataSource.url;
+            if (this._config.reuseRedirectedURL) {
+                if (this._currentRedirectedURL != undefined) {
+                    sourceURL = this._currentRedirectedURL;
+                } else if (dataSource.redirectedURL != undefined) {
+                    sourceURL = dataSource.redirectedURL;
+                }
+            }
+
+            var seekConfig = this._seekHandler.getConfig(sourceURL, range);
+            this._currentRequestURL = seekConfig.url;
 
             var reader = this._reader = new self.MSStreamReader();
             reader.onprogress = this._msrOnProgress.bind(this);
@@ -7616,9 +7745,20 @@ var MSStreamLoader = function (_BaseLoader) {
         value: function _xhrOnReadyStateChange(e) {
             var xhr = e.target;
 
-            if (xhr.readyState === 3) {
+            if (xhr.readyState === 2) {
+                // HEADERS_RECEIVED
                 if (xhr.status >= 200 && xhr.status <= 299) {
                     this._status = _loader.LoaderStatus.kBuffering;
+
+                    if (xhr.responseURL != undefined) {
+                        var redirectedURL = this._seekHandler.removeURLParameters(xhr.responseURL);
+                        if (xhr.responseURL !== this._currentRequestURL && redirectedURL !== this._currentRedirectedURL) {
+                            this._currentRedirectedURL = redirectedURL;
+                            if (this._onURLRedirect) {
+                                this._onURLRedirect(redirectedURL);
+                            }
+                        }
+                    }
 
                     var lengthHeader = xhr.getResponseHeader('Content-Length');
                     if (lengthHeader != null && this._contentLength == null) {
@@ -7630,9 +7770,6 @@ var MSStreamLoader = function (_BaseLoader) {
                             }
                         }
                     }
-
-                    var msstream = xhr.response;
-                    this._reader.readAsArrayBuffer(msstream);
                 } else {
                     this._status = _loader.LoaderStatus.kError;
                     if (this._onError) {
@@ -7640,6 +7777,14 @@ var MSStreamLoader = function (_BaseLoader) {
                     } else {
                         throw new _exception.RuntimeException('MSStreamLoader: Http code invalid, ' + xhr.status + ' ' + xhr.statusText);
                     }
+                }
+            } else if (xhr.readyState === 3) {
+                // LOADING
+                if (xhr.status >= 200 && xhr.status <= 299) {
+                    this._status = _loader.LoaderStatus.kBuffering;
+
+                    var msstream = xhr.response;
+                    this._reader.readAsArrayBuffer(msstream);
                 }
             }
         }
@@ -7801,7 +7946,7 @@ var RangeLoader = function (_BaseLoader) {
         }
     }]);
 
-    function RangeLoader(seekHandler) {
+    function RangeLoader(seekHandler, config) {
         _classCallCheck(this, RangeLoader);
 
         var _this = _possibleConstructorReturn(this, (RangeLoader.__proto__ || Object.getPrototypeOf(RangeLoader)).call(this, 'xhr-range-loader'));
@@ -7809,6 +7954,7 @@ var RangeLoader = function (_BaseLoader) {
         _this.TAG = 'RangeLoader';
 
         _this._seekHandler = seekHandler;
+        _this._config = config;
         _this._needStash = false;
 
         _this._chunkSizeKBList = [128, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096, 5120, 6144, 7168, 8192];
@@ -7823,6 +7969,8 @@ var RangeLoader = function (_BaseLoader) {
         _this._waitForTotalLength = false;
         _this._totalLengthReceived = false;
 
+        _this._currentRequestURL = null;
+        _this._currentRedirectedURL = null;
         _this._currentRequestRange = null;
         _this._totalLength = null; // size of the entire file
         _this._contentLength = null; // Content-Length of entire request range
@@ -7884,7 +8032,17 @@ var RangeLoader = function (_BaseLoader) {
         value: function _internalOpen(dataSource, range) {
             this._lastTimeLoaded = 0;
 
-            var seekConfig = this._seekHandler.getConfig(dataSource.url, range);
+            var sourceURL = dataSource.url;
+            if (this._config.reuseRedirectedURL) {
+                if (this._currentRedirectedURL != undefined) {
+                    sourceURL = this._currentRedirectedURL;
+                } else if (dataSource.redirectedURL != undefined) {
+                    sourceURL = dataSource.redirectedURL;
+                }
+            }
+
+            var seekConfig = this._seekHandler.getConfig(sourceURL, range);
+            this._currentRequestURL = seekConfig.url;
 
             var xhr = this._xhr = new XMLHttpRequest();
             xhr.open('GET', seekConfig.url, true);
@@ -7936,7 +8094,18 @@ var RangeLoader = function (_BaseLoader) {
 
             if (xhr.readyState === 2) {
                 // HEADERS_RECEIVED
-                if (xhr.status >= 200 && xhr.status < 300) {
+                if (xhr.responseURL != undefined) {
+                    // if the browser support this property
+                    var redirectedURL = this._seekHandler.removeURLParameters(xhr.responseURL);
+                    if (xhr.responseURL !== this._currentRequestURL && redirectedURL !== this._currentRedirectedURL) {
+                        this._currentRedirectedURL = redirectedURL;
+                        if (this._onURLRedirect) {
+                            this._onURLRedirect(redirectedURL);
+                        }
+                    }
+                }
+
+                if (xhr.status >= 200 && xhr.status <= 299) {
                     if (this._waitForTotalLength) {
                         return;
                     }
@@ -8516,7 +8685,7 @@ var FlvPlayer = function () {
                 var from = buffered.start(i);
                 var to = buffered.end(i);
                 if (currentTime >= from && currentTime < to) {
-                    if (currentTime >= to - 30) {
+                    if (currentTime >= to - this._config.lazyLoadRecoverDuration) {
                         needResume = true;
                     }
                     break;

@@ -48,6 +48,7 @@ declare namespace FlvJs {
 
         lazyLoad?: boolean,
         lazyLoadMaxDuration?: number,
+        lazyLoadRecoverDuration?: number,
         deferLoadAfterSourceOpen?: boolean,
 
         statisticsInfoReportInterval?: number,
@@ -57,7 +58,8 @@ declare namespace FlvJs {
         seekParamStart?: string,
         seekParamEnd?: string,
         rangeLoadZeroStart?: boolean,
-        customSeekHandler?: any
+        customSeekHandler?: any,
+        reuseRedirectedURL?: boolean
     }
 
     interface FeatureList {
