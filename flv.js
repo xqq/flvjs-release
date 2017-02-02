@@ -5889,7 +5889,7 @@ var FetchStreamLoader = function (_BaseLoader) {
                 var type = 0;
                 var info = null;
 
-                if (e.code === 19 && ( // NETWORK_ERR
+                if ((e.code === 19 || e.message === 'network error') && ( // NETWORK_ERR
                 _this3._contentLength === null || _this3._contentLength !== null && _this3._receivedLength < _this3._contentLength)) {
                     type = _loader.LoaderErrors.EARLY_EOF;
                     info = { code: e.code, msg: 'Fetch stream meet Early-EOF' };
