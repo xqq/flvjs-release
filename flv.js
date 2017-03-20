@@ -5,7 +5,7 @@
  * @copyright Copyright (c) 2014 Yehuda Katz, Tom Dale, Stefan Penner and contributors (Conversion to ES6 API by Jake Archibald)
  * @license   Licensed under MIT license
  *            See https://raw.githubusercontent.com/stefanpenner/es6-promise/master/LICENSE
- * @version   4.0.5
+ * @version   4.1.0
  */
 
 (function (global, factory) {
@@ -313,6 +313,7 @@ function handleMaybeThenable(promise, maybeThenable, then$$) {
   } else {
     if (then$$ === GET_THEN_ERROR) {
       _reject(promise, GET_THEN_ERROR.error);
+      GET_THEN_ERROR.error = null;
     } else if (then$$ === undefined) {
       fulfill(promise, maybeThenable);
     } else if (isFunction(then$$)) {
@@ -433,7 +434,7 @@ function invokeCallback(settled, promise, callback, detail) {
     if (value === TRY_CATCH_ERROR) {
       failed = true;
       error = value.error;
-      value = null;
+      value.error = null;
     } else {
       succeeded = true;
     }
@@ -1156,6 +1157,7 @@ Promise.Promise = Promise;
 return Promise;
 
 })));
+
 
 }).call(this,_dereq_('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 
@@ -2351,6 +2353,9 @@ var MSEController = function () {
         this._isBufferFull = false;
         this._hasPendingEos = false;
 
+        this._requireSetMediaDuration = false;
+        this._pendingMediaDuration = 0;
+
         this._pendingSourceBufferInit = [];
         this._mimeTypes = {
             video: null,
@@ -2474,7 +2479,11 @@ var MSEController = function () {
             }
 
             var is = initSegment;
-            var mimeType = is.container + ';codecs=' + is.codec;
+            var mimeType = '' + is.container;
+            if (is.codec && is.codec.length > 0) {
+                mimeType += ';codecs=' + is.codec;
+            }
+
             var firstInitSegment = false;
 
             _logger2.default.v(this.TAG, 'Received Initialization Segment, mimeType: ' + mimeType);
@@ -2508,6 +2517,13 @@ var MSEController = function () {
                 if (this._sourceBuffers[is.type] && !this._sourceBuffers[is.type].updating) {
                     this._doAppendSegments();
                 }
+            }
+            if (_browser2.default.safari && is.container === 'audio/mpeg' && is.mediaDuration > 0) {
+                // 'audio/mpeg' track under Safari may cause MediaElement's duration to be NaN
+                // Manually correct MediaSource.duration to make progress bar seekable, and report right duration
+                this._requireSetMediaDuration = true;
+                this._pendingMediaDuration = is.mediaDuration / 1000; // in seconds
+                this._updateMediaSourceDuration();
             }
         }
     }, {
@@ -2611,6 +2627,28 @@ var MSEController = function () {
             return this._idrList.getLastSyncPointBeforeDts(dts);
         }
     }, {
+        key: '_updateMediaSourceDuration',
+        value: function _updateMediaSourceDuration() {
+            var sb = this._sourceBuffers;
+            if (this._mediaElement.readyState === 0 || this._mediaSource.readyState !== 'open') {
+                return;
+            }
+            if (sb.video && sb.video.updating || sb.audio && sb.audio.updating) {
+                return;
+            }
+
+            var current = this._mediaSource.duration;
+            var target = this._pendingMediaDuration;
+
+            if (target > 0 && (isNaN(current) || target > current)) {
+                _logger2.default.v(this.TAG, 'Update MediaSource duration from ' + current + ' to ' + target);
+                this._mediaSource.duration = target;
+            }
+
+            this._requireSetMediaDuration = false;
+            this._pendingMediaDuration = 0;
+        }
+    }, {
         key: '_doRemoveRanges',
         value: function _doRemoveRanges() {
             for (var type in this._pendingRemoveRanges) {
@@ -2634,8 +2672,30 @@ var MSEController = function () {
                 if (!this._sourceBuffers[type] || this._sourceBuffers[type].updating) {
                     continue;
                 }
+
                 if (pendingSegments[type].length > 0) {
                     var segment = pendingSegments[type].shift();
+
+                    if (segment.timestampOffset) {
+                        // For MPEG audio stream in MSE, if unbuffered-seeking occurred
+                        // We need explicitly set timestampOffset to the desired point in timeline for mpeg SourceBuffer.
+                        var currentOffset = this._sourceBuffers[type].timestampOffset;
+                        var targetOffset = segment.timestampOffset / 1000; // in seconds
+
+                        var delta = Math.abs(currentOffset - targetOffset);
+                        if (delta > 0.1) {
+                            // If time delta > 100ms
+                            _logger2.default.v(this.TAG, 'Update MPEG audio timestampOffset from ' + currentOffset + ' to ' + targetOffset);
+                            this._sourceBuffers[type].timestampOffset = targetOffset;
+                        }
+                        delete segment.timestampOffset;
+                    }
+
+                    if (!segment.data || segment.data.byteLength === 0) {
+                        // Ignore empty buffer
+                        continue;
+                    }
+
                     try {
                         this._sourceBuffers[type].appendBuffer(segment.data);
                         this._isBufferFull = false;
@@ -2719,7 +2779,9 @@ var MSEController = function () {
     }, {
         key: '_onSourceBufferUpdateEnd',
         value: function _onSourceBufferUpdateEnd() {
-            if (this._hasPendingRemoveRanges()) {
+            if (this._requireSetMediaDuration) {
+                this._updateMediaSourceDuration();
+            } else if (this._hasPendingRemoveRanges()) {
                 this._doRemoveRanges();
             } else if (this._hasPendingSegments()) {
                 this._doAppendSegments();
@@ -4366,6 +4428,18 @@ var FLVDemuxer = function () {
             fps_den: 1000
         };
 
+        this._flvSoundRateTable = [5500, 11025, 22050, 44100, 48000];
+
+        this._mpegSamplingRates = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
+
+        this._mpegAudioV10SampleRateTable = [44100, 48000, 32000, 0];
+        this._mpegAudioV20SampleRateTable = [22050, 24000, 16000, 0];
+        this._mpegAudioV25SampleRateTable = [11025, 12000, 8000, 0];
+
+        this._mpegAudioL1BitRateTable = [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, -1];
+        this._mpegAudioL2BitRateTable = [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, -1];
+        this._mpegAudioL3BitRateTable = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, -1];
+
         this._videoTrack = { type: 'video', id: 1, sequenceNumber: 0, samples: [], length: 0 };
         this._audioTrack = { type: 'audio', id: 2, sequenceNumber: 0, samples: [], length: 0 };
 
@@ -4420,6 +4494,7 @@ var FLVDemuxer = function () {
                 // video only
                 return this._videoInitialMetadataDispatched;
             }
+            return false;
         }
 
         // function parseChunks(chunk: ArrayBuffer, byteStart: number): number;
@@ -4634,105 +4709,149 @@ var FLVDemuxer = function () {
                 return;
             }
 
+            var le = this._littleEndian;
+            var v = new DataView(arrayBuffer, dataOffset, dataSize);
+
+            var soundSpec = v.getUint8(0);
+
+            var soundFormat = soundSpec >>> 4;
+            if (soundFormat !== 2 && soundFormat !== 10) {
+                // MP3 or AAC
+                this._onError(_demuxErrors2.default.CODEC_UNSUPPORTED, 'Flv: Unsupported audio codec idx: ' + soundFormat);
+                return;
+            }
+
+            var soundRate = 0;
+            var soundRateIndex = (soundSpec & 12) >>> 2;
+            if (soundRateIndex >= 0 && soundRateIndex <= 4) {
+                soundRate = this._flvSoundRateTable[soundRateIndex];
+            } else {
+                this._onError(_demuxErrors2.default.FORMAT_ERROR, 'Flv: Invalid audio sample rate idx: ' + soundRateIndex);
+                return;
+            }
+
+            var soundSize = (soundSpec & 2) >>> 1; // unused
+            var soundType = soundSpec & 1;
+
             var meta = this._audioMetadata;
             var track = this._audioTrack;
 
-            if (!meta || !meta.codec) {
+            if (!meta) {
+                if (this._hasAudio === false) {
+                    this._hasAudio = true;
+                    this._mediaInfo.hasAudio = true;
+                }
+
                 // initial metadata
                 meta = this._audioMetadata = {};
                 meta.type = 'audio';
                 meta.id = track.id;
                 meta.timescale = this._timescale;
                 meta.duration = this._duration;
-
-                var le = this._littleEndian;
-                var v = new DataView(arrayBuffer, dataOffset, dataSize);
-
-                var soundSpec = v.getUint8(0);
-
-                var soundFormat = soundSpec >>> 4;
-                if (soundFormat !== 10) {
-                    // AAC
-                    // TODO: support MP3 audio codec
-                    this._onError(_demuxErrors2.default.CODEC_UNSUPPORTED, 'Flv: Unsupported audio codec idx: ' + soundFormat);
-                    return;
-                }
-
-                var soundRate = 0;
-                var soundRateIndex = (soundSpec & 12) >>> 2;
-
-                var soundRateTable = [5500, 11025, 22050, 44100, 48000];
-
-                if (soundRateIndex < soundRateTable.length) {
-                    soundRate = soundRateTable[soundRateIndex];
-                } else {
-                    this._onError(_demuxErrors2.default.FORMAT_ERROR, 'Flv: Invalid audio sample rate idx: ' + soundRateIndex);
-                    return;
-                }
-
-                var soundSize = (soundSpec & 2) >>> 1; // unused
-                var soundType = soundSpec & 1;
-
                 meta.audioSampleRate = soundRate;
                 meta.channelCount = soundType === 0 ? 1 : 2;
-                meta.refSampleDuration = Math.floor(1024 / meta.audioSampleRate * meta.timescale);
-                meta.codec = 'mp4a.40.5';
             }
 
-            var aacData = this._parseAACAudioData(arrayBuffer, dataOffset + 1, dataSize - 1);
-            if (aacData == undefined) {
-                return;
-            }
-
-            if (aacData.packetType === 0) {
-                // AAC sequence header (AudioSpecificConfig)
-                if (meta.config) {
-                    _logger2.default.w(this.TAG, 'Found another AudioSpecificConfig!');
+            if (soundFormat === 10) {
+                // AAC
+                var aacData = this._parseAACAudioData(arrayBuffer, dataOffset + 1, dataSize - 1);
+                if (aacData == undefined) {
+                    return;
                 }
-                var misc = aacData.data;
-                meta.audioSampleRate = misc.samplingRate;
-                meta.channelCount = misc.channelCount;
-                meta.codec = misc.codec;
-                meta.config = misc.config;
-                // The decode result of an aac sample is 1024 PCM samples
-                meta.refSampleDuration = Math.floor(1024 / meta.audioSampleRate * meta.timescale);
-                _logger2.default.v(this.TAG, 'Parsed AudioSpecificConfig');
 
-                if (this._isInitialMetadataDispatched()) {
-                    // Non-initial metadata, force dispatch (or flush) parsed frames to remuxer
-                    if (this._dispatch && (this._audioTrack.length || this._videoTrack.length)) {
-                        this._onDataAvailable(this._audioTrack, this._videoTrack);
+                if (aacData.packetType === 0) {
+                    // AAC sequence header (AudioSpecificConfig)
+                    if (meta.config) {
+                        _logger2.default.w(this.TAG, 'Found another AudioSpecificConfig!');
                     }
+                    var misc = aacData.data;
+                    meta.audioSampleRate = misc.samplingRate;
+                    meta.channelCount = misc.channelCount;
+                    meta.codec = misc.codec;
+                    meta.config = misc.config;
+                    // The decode result of an aac sample is 1024 PCM samples
+                    meta.refSampleDuration = Math.floor(1024 / meta.audioSampleRate * meta.timescale);
+                    _logger2.default.v(this.TAG, 'Parsed AudioSpecificConfig');
+
+                    if (this._isInitialMetadataDispatched()) {
+                        // Non-initial metadata, force dispatch (or flush) parsed frames to remuxer
+                        if (this._dispatch && (this._audioTrack.length || this._videoTrack.length)) {
+                            this._onDataAvailable(this._audioTrack, this._videoTrack);
+                        }
+                    } else {
+                        this._audioInitialMetadataDispatched = true;
+                    }
+                    // then notify new metadata
+                    this._dispatch = false;
+                    this._onTrackMetadata('audio', meta);
+
+                    var mi = this._mediaInfo;
+                    mi.audioCodec = 'mp4a.40.' + misc.originalAudioObjectType;
+                    mi.audioSampleRate = meta.audioSampleRate;
+                    mi.audioChannelCount = meta.channelCount;
+                    if (mi.hasVideo) {
+                        if (mi.videoCodec != null) {
+                            mi.mimeType = 'video/x-flv; codecs="' + mi.videoCodec + ',' + mi.audioCodec + '"';
+                        }
+                    } else {
+                        mi.mimeType = 'video/x-flv; codecs="' + mi.audioCodec + '"';
+                    }
+                    if (mi.isComplete()) {
+                        this._onMediaInfo(mi);
+                    }
+                } else if (aacData.packetType === 1) {
+                    // AAC raw frame data
+                    var dts = this._timestampBase + tagTimestamp;
+                    var aacSample = { unit: aacData.data, dts: dts, pts: dts };
+                    track.samples.push(aacSample);
+                    track.length += aacData.data.length;
                 } else {
+                    _logger2.default.e(this.TAG, 'Flv: Unsupported AAC data type ' + aacData.packetType);
+                }
+            } else if (soundFormat === 2) {
+                // MP3
+                if (!meta.codec) {
+                    // We need metadata for mp3 audio track, extract info from frame header
+                    var _misc = this._parseMP3AudioData(arrayBuffer, dataOffset + 1, dataSize - 1, true);
+                    if (_misc == undefined) {
+                        return;
+                    }
+                    meta.audioSampleRate = _misc.samplingRate;
+                    meta.channelConfig = _misc.channelCount;
+                    meta.codec = _misc.codec;
+                    // The decode result of an mp3 sample is 1152 PCM samples
+                    meta.refSampleDuration = Math.floor(1152 / meta.audioSampleRate * meta.timescale);
+                    _logger2.default.v(this.TAG, 'Parsed MPEG Audio Frame Header');
+
                     this._audioInitialMetadataDispatched = true;
-                }
-                // then notify new metadata
-                this._dispatch = false;
-                this._onTrackMetadata('audio', meta);
+                    this._onTrackMetadata('audio', meta);
 
-                var mi = this._mediaInfo;
-                mi.audioCodec = 'mp4a.40.' + misc.originalAudioObjectType;
-                mi.audioSampleRate = meta.audioSampleRate;
-                mi.audioChannelCount = meta.channelCount;
-                if (mi.hasVideo) {
-                    if (mi.videoCodec != null) {
-                        mi.mimeType = 'video/x-flv; codecs="' + mi.videoCodec + ',' + mi.audioCodec + '"';
+                    var _mi = this._mediaInfo;
+                    _mi.audioCodec = meta.codec;
+                    _mi.audioSampleRate = meta.audioSampleRate;
+                    _mi.audioChannelCount = meta.channelCount;
+                    _mi.audioDataRate = _misc.bitRate;
+                    if (_mi.hasVideo) {
+                        if (_mi.videoCodec != null) {
+                            _mi.mimeType = 'video/x-flv; codecs="' + _mi.videoCodec + ',' + _mi.audioCodec + '"';
+                        }
+                    } else {
+                        _mi.mimeType = 'video/x-flv; codecs="' + _mi.audioCodec + '"';
                     }
-                } else {
-                    mi.mimeType = 'video/x-flv; codecs="' + mi.audioCodec + '"';
+                    if (_mi.isComplete()) {
+                        this._onMediaInfo(_mi);
+                    }
                 }
-                if (mi.isComplete()) {
-                    this._onMediaInfo(mi);
+
+                // This packet is always a valid audio packet, extract it
+                var data = this._parseMP3AudioData(arrayBuffer, dataOffset + 1, dataSize - 1, false);
+                if (data == undefined) {
+                    return;
                 }
-                return;
-            } else if (aacData.packetType === 1) {
-                // AAC raw frame data
-                var dts = this._timestampBase + tagTimestamp;
-                var aacSample = { unit: aacData.data, dts: dts, pts: dts };
-                track.samples.push(aacSample);
-                track.length += aacData.data.length;
-            } else {
-                _logger2.default.e(this.TAG, 'Flv: Unsupported AAC data type ' + aacData.packetType);
+                var _dts = this._timestampBase + tagTimestamp;
+                var mp3Sample = { unit: data, dts: _dts, pts: _dts };
+                track.samples.push(mp3Sample);
+                track.length += data.length;
             }
         }
     }, {
@@ -4762,8 +4881,6 @@ var FLVDemuxer = function () {
             var array = new Uint8Array(arrayBuffer, dataOffset, dataSize);
             var config = null;
 
-            var mpegSamplingRates = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
-
             /* Audio Object Type:
                0: Null
                1: AAC Main
@@ -4784,12 +4901,12 @@ var FLVDemuxer = function () {
             audioObjectType = originalAudioObjectType = array[0] >>> 3;
             // 4 bits
             samplingIndex = (array[0] & 0x07) << 1 | array[1] >>> 7;
-            if (samplingIndex < 0 || samplingIndex >= mpegSamplingRates.length) {
+            if (samplingIndex < 0 || samplingIndex >= this._mpegSamplingRates.length) {
                 this._onError(_demuxErrors2.default.FORMAT_ERROR, 'Flv: AAC invalid sampling frequency index!');
                 return;
             }
 
-            var samplingFrequence = mpegSamplingRates[samplingIndex];
+            var samplingFrequence = this._mpegSamplingRates[samplingIndex];
 
             // 4 bits
             var channelConfig = (array[1] & 0x78) >>> 3;
@@ -4864,6 +4981,88 @@ var FLVDemuxer = function () {
             };
         }
     }, {
+        key: '_parseMP3AudioData',
+        value: function _parseMP3AudioData(arrayBuffer, dataOffset, dataSize, requestHeader) {
+            if (dataSize < 4) {
+                _logger2.default.w(this.TAG, 'Flv: Invalid MP3 packet, header missing!');
+                return;
+            }
+
+            var le = this._littleEndian;
+            var array = new Uint8Array(arrayBuffer, dataOffset, dataSize);
+            var result = null;
+
+            if (requestHeader) {
+                if (array[0] !== 0xFF) {
+                    return;
+                }
+                var ver = array[1] >>> 3 & 0x03;
+                var layer = (array[1] & 0x06) >> 1;
+
+                var bitrate_index = (array[2] & 0xF0) >>> 4;
+                var sampling_freq_index = (array[2] & 0x0C) >>> 2;
+
+                var channel_mode = array[3] >>> 6 & 0x03;
+                var channel_count = channel_mode !== 3 ? 2 : 1;
+
+                var sample_rate = 0;
+                var bit_rate = 0;
+                var object_type = 34; // Layer-3, listed in MPEG-4 Audio Object Types
+
+                var codec = 'mp3';
+
+                switch (ver) {
+                    case 0:
+                        // MPEG 2.5
+                        sample_rate = this._mpegAudioV25SampleRateTable[sampling_freq_index];
+                        break;
+                    case 2:
+                        // MPEG 2
+                        sample_rate = this._mpegAudioV20SampleRateTable[sampling_freq_index];
+                        break;
+                    case 3:
+                        // MPEG 1
+                        sample_rate = this._mpegAudioV10SampleRateTable[sampling_freq_index];
+                        break;
+                }
+
+                switch (layer) {
+                    case 1:
+                        // Layer 3
+                        object_type = 34;
+                        if (bitrate_index < this._mpegAudioL3BitRateTable.length) {
+                            bit_rate = this._mpegAudioL3BitRateTable[bitrate_index];
+                        }
+                        break;
+                    case 2:
+                        // Layer 2
+                        object_type = 33;
+                        if (bitrate_index < this._mpegAudioL2BitRateTable.length) {
+                            bit_rate = this._mpegAudioL2BitRateTable[bitrate_index];
+                        }
+                        break;
+                    case 3:
+                        // Layer 1
+                        object_type = 32;
+                        if (bitrate_index < this._mpegAudioL1BitRateTable.length) {
+                            bit_rate = this._mpegAudioL1BitRateTable[bitrate_index];
+                        }
+                        break;
+                }
+
+                result = {
+                    bitRate: bit_rate,
+                    samplingRate: sample_rate,
+                    channelCount: channel_count,
+                    codec: codec
+                };
+            } else {
+                result = array;
+            }
+
+            return result;
+        }
+    }, {
         key: '_parseVideoData',
         value: function _parseVideoData(arrayBuffer, dataOffset, dataSize, tagTimestamp, tagPosition) {
             if (dataSize <= 1) {
@@ -4924,6 +5123,11 @@ var FLVDemuxer = function () {
             var v = new DataView(arrayBuffer, dataOffset, dataSize);
 
             if (!meta) {
+                if (this._hasVideo === false) {
+                    this._hasVideo = true;
+                    this._mediaInfo.hasVideo = true;
+                }
+
                 meta = this._videoMetadata = {};
                 meta.type = 'video';
                 meta.id = track.id;
@@ -4953,9 +5157,11 @@ var FLVDemuxer = function () {
             }
 
             var spsCount = v.getUint8(5) & 31; // numOfSequenceParameterSets
-            if (spsCount === 0 || spsCount > 1) {
-                this._onError(_demuxErrors2.default.FORMAT_ERROR, 'Flv: Invalid H264 SPS count: ' + spsCount);
+            if (spsCount === 0) {
+                this._onError(_demuxErrors2.default.FORMAT_ERROR, 'Flv: Invalid AVCDecoderConfigurationRecord: No SPS');
                 return;
+            } else if (spsCount > 1) {
+                _logger2.default.w(this.TAG, 'Flv: Strange AVCDecoderConfigurationRecord: SPS Count = ' + spsCount);
             }
 
             var offset = 6;
@@ -4973,6 +5179,11 @@ var FLVDemuxer = function () {
                 offset += len;
 
                 var config = _spsParser2.default.parseSPS(sps);
+                if (i !== 0) {
+                    // ignore other sps's config
+                    continue;
+                }
+
                 meta.codecWidth = config.codec_size.width;
                 meta.codecHeight = config.codec_size.height;
                 meta.presentWidth = config.present_size.width;
@@ -5028,9 +5239,11 @@ var FLVDemuxer = function () {
             }
 
             var ppsCount = v.getUint8(offset); // numOfPictureParameterSets
-            if (ppsCount === 0 || ppsCount > 1) {
-                this._onError(_demuxErrors2.default.FORMAT_ERROR, 'Flv: Invalid H264 PPS count: ' + ppsCount);
+            if (ppsCount === 0) {
+                this._onError(_demuxErrors2.default.FORMAT_ERROR, 'Flv: Invalid AVCDecoderConfigurationRecord: No PPS');
                 return;
+            } else if (ppsCount > 1) {
+                _logger2.default.w(this.TAG, 'Flv: Strange AVCDecoderConfigurationRecord: PPS Count = ' + ppsCount);
             }
 
             offset++;
@@ -5201,10 +5414,6 @@ var FLVDemuxer = function () {
 
             var hasAudio = (data[4] & 4) >>> 2 !== 0;
             var hasVideo = (data[4] & 1) !== 0;
-
-            if (!hasAudio && !hasVideo) {
-                return mismatch;
-            }
 
             var offset = ReadBig32(data, 5);
 
@@ -5651,7 +5860,7 @@ Object.defineProperty(flvjs, 'version', {
     enumerable: true,
     get: function get() {
         // replaced by browserify-versionify transform
-        return '1.1.0';
+        return '1.2.0';
     }
 });
 
@@ -5727,9 +5936,12 @@ var FetchStreamLoader = function (_BaseLoader) {
         key: 'isSupported',
         value: function isSupported() {
             try {
-                // fetch + stream is broken on Microsoft Edge. Disable for now.
+                // fetch + stream is broken on Microsoft Edge. Disable before build 15048.
                 // see https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/8196907/
-                return self.fetch && self.ReadableStream && !_browser2.default.msedge;
+                // Fixed in Jan 10, 2017. Build 15048+ removed from blacklist.
+                var isWorkWellEdge = _browser2.default.msedge && _browser2.default.version.minor >= 15048;
+                var browserNotBlacklisted = _browser2.default.msedge ? isWorkWellEdge : true;
+                return self.fetch && self.ReadableStream && browserNotBlacklisted;
             } catch (e) {
                 return false;
             }
@@ -5885,6 +6097,14 @@ var FetchStreamLoader = function (_BaseLoader) {
                     return _this3._pump(reader);
                 }
             }).catch(function (e) {
+                if (e.code === 11 && _browser2.default.msedge) {
+                    // InvalidStateError on Microsoft Edge
+                    // Workaround: Edge may throw InvalidStateError after ReadableStreamReader.cancel() call
+                    // Ignore the unknown exception.
+                    // Related issue: https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/11265202/
+                    return;
+                }
+
                 _this3._status = _loader.LoaderStatus.kError;
                 var type = 0;
                 var info = null;
@@ -6022,7 +6242,7 @@ var IOController = function () {
         this._seekHandler = null;
 
         this._dataSource = dataSource;
-        this._isWebSocketURL = /wss?:\/\/(.+?)\//.test(dataSource.url);
+        this._isWebSocketURL = /wss?:\/\/(.+?)/.test(dataSource.url);
         this._refTotalLength = dataSource.filesize ? dataSource.filesize : null;
         this._totalLength = this._refTotalLength;
         this._fullRequestFlag = false;
@@ -7240,13 +7460,11 @@ var WebSocketLoader = function (_BaseLoader) {
             if (e.data instanceof ArrayBuffer) {
                 this._dispatchArrayBuffer(e.data);
             } else if (e.data instanceof Blob) {
-                (function () {
-                    var reader = new FileReader();
-                    reader.onload = function () {
-                        _this2._dispatchArrayBuffer(reader.result);
-                    };
-                    reader.readAsArrayBuffer(e.data);
-                })();
+                var reader = new FileReader();
+                reader.onload = function () {
+                    _this2._dispatchArrayBuffer(reader.result);
+                };
+                reader.readAsArrayBuffer(e.data);
             } else {
                 this._status = _loader.LoaderStatus.kError;
                 var info = { code: -1, msg: 'Unsupported WebSocket message type: ' + e.data.constructor.name };
@@ -9440,7 +9658,7 @@ var MP4 = function () {
                 stco: [], stsc: [], stsd: [], stsz: [],
                 stts: [], tfdt: [], tfhd: [], traf: [],
                 trak: [], trun: [], trex: [], tkhd: [],
-                vmhd: [], smhd: []
+                vmhd: [], smhd: [], '.mp3': []
             };
 
             for (var name in MP4.types) {
@@ -9699,10 +9917,31 @@ var MP4 = function () {
         key: 'stsd',
         value: function stsd(meta) {
             if (meta.type === 'audio') {
+                if (meta.codec === 'mp3') {
+                    return MP4.box(MP4.types.stsd, MP4.constants.STSD_PREFIX, MP4.mp3(meta));
+                }
+                // else: aac -> mp4a
                 return MP4.box(MP4.types.stsd, MP4.constants.STSD_PREFIX, MP4.mp4a(meta));
             } else {
                 return MP4.box(MP4.types.stsd, MP4.constants.STSD_PREFIX, MP4.avc1(meta));
             }
+        }
+    }, {
+        key: 'mp3',
+        value: function mp3(meta) {
+            var channelCount = meta.channelCount;
+            var sampleRate = meta.audioSampleRate;
+
+            var data = new Uint8Array([0x00, 0x00, 0x00, 0x00, // reserved(4)
+            0x00, 0x00, 0x00, 0x01, // reserved(2) + data_reference_index(2)
+            0x00, 0x00, 0x00, 0x00, // reserved: 2 * 4 bytes
+            0x00, 0x00, 0x00, 0x00, 0x00, channelCount, // channelCount(2)
+            0x00, 0x10, // sampleSize(2)
+            0x00, 0x00, 0x00, 0x00, // reserved(4)
+            sampleRate >>> 8 & 0xFF, // Audio sample rate
+            sampleRate & 0xFF, 0x00, 0x00]);
+
+            return MP4.box(MP4.types['.mp3'], data);
         }
     }, {
         key: 'mp4a',
@@ -9724,7 +9963,7 @@ var MP4 = function () {
     }, {
         key: 'esds',
         value: function esds(meta) {
-            var config = meta.config;
+            var config = meta.config || [];
             var configSize = config.length;
             var data = new Uint8Array([0x00, 0x00, 0x00, 0x00, // version 0 + flags
 
@@ -9976,6 +10215,9 @@ var MP4Remuxer = function () {
         // Workaround for IE11/Edge: Fill silent aac frame after keyframe-seeking
         // Make audio beginDts equals with video beginDts, in order to fix seek freeze
         this._fillSilentAfterSeek = _browser2.default.msedge || _browser2.default.msie;
+
+        // While only FireFox supports 'audio/mp4, codecs="mp3"', use 'audio/mpeg' for chrome, safari, ...
+        this._mp3UseMpegAudio = !_browser2.default.firefox;
     }
 
     _createClass(MP4Remuxer, [{
@@ -10037,9 +10279,20 @@ var MP4Remuxer = function () {
         value: function _onTrackMetadataReceived(type, metadata) {
             var metabox = null;
 
+            var container = 'mp4';
+            var codec = metadata.codec;
+
             if (type === 'audio') {
                 this._audioMeta = metadata;
-                metabox = _mp4Generator2.default.generateInitSegment(metadata);
+                if (metadata.codec === 'mp3' && this._mp3UseMpegAudio) {
+                    // 'audio/mpeg' for MP3 audio track
+                    container = 'mpeg';
+                    codec = '';
+                    metabox = new Uint8Array();
+                } else {
+                    // 'audio/mp4, codecs="codec"'
+                    metabox = _mp4Generator2.default.generateInitSegment(metadata);
+                }
             } else if (type === 'video') {
                 this._videoMeta = metadata;
                 metabox = _mp4Generator2.default.generateInitSegment(metadata);
@@ -10054,8 +10307,9 @@ var MP4Remuxer = function () {
             this._onInitSegment(type, {
                 type: type,
                 data: metabox.buffer,
-                codec: metadata.codec,
-                container: type + '/mp4'
+                codec: codec,
+                container: type + '/' + container,
+                mediaDuration: metadata.duration // in timescale 1000 (milliseconds)
             });
         }
     }, {
@@ -10085,6 +10339,9 @@ var MP4Remuxer = function () {
                 lastDts = -1,
                 lastPts = -1;
 
+            var mpegRawTrack = this._audioMeta.codec === 'mp3' && this._mp3UseMpegAudio;
+            var firstSegmentAfterSeek = this._dtsBaseInited && this._audioNextDts === undefined;
+
             var remuxSilentFrame = false;
             var silentFrameDuration = -1;
 
@@ -10092,16 +10349,29 @@ var MP4Remuxer = function () {
                 return;
             }
 
-            var bytes = 8 + track.length;
-            var mdatbox = new Uint8Array(bytes);
-            mdatbox[0] = bytes >>> 24 & 0xFF;
-            mdatbox[1] = bytes >>> 16 & 0xFF;
-            mdatbox[2] = bytes >>> 8 & 0xFF;
-            mdatbox[3] = bytes & 0xFF;
+            var bytes = 0;
+            var offset = 0;
+            var mdatbox = null;
 
-            mdatbox.set(_mp4Generator2.default.types.mdat, 4);
+            if (mpegRawTrack) {
+                // allocate for raw mpeg buffer
+                bytes = track.length;
+                offset = 0;
+                mdatbox = new Uint8Array(bytes);
+            } else {
+                // allocate for fmp4 mdat box
+                bytes = 8 + track.length;
+                offset = 8; // size + type
+                mdatbox = new Uint8Array(bytes);
+                // size field
+                mdatbox[0] = bytes >>> 24 & 0xFF;
+                mdatbox[1] = bytes >>> 16 & 0xFF;
+                mdatbox[2] = bytes >>> 8 & 0xFF;
+                mdatbox[3] = bytes & 0xFF;
+                // type field (fourCC)
+                mdatbox.set(_mp4Generator2.default.types.mdat, 4);
+            }
 
-            var offset = 8; // size + type
             var mp4Samples = [];
 
             while (samples.length) {
@@ -10114,7 +10384,9 @@ var MP4Remuxer = function () {
                         if (this._audioSegmentInfoList.isEmpty()) {
                             dtsCorrection = 0;
                             if (this._fillSilentAfterSeek && !this._videoSegmentInfoList.isEmpty()) {
-                                remuxSilentFrame = true;
+                                if (this._audioMeta.codec !== 'mp3') {
+                                    remuxSilentFrame = true;
+                                }
                             }
                         } else {
                             var lastSample = this._audioSegmentInfoList.getLastSampleBefore(originalDts);
@@ -10232,16 +10504,33 @@ var MP4Remuxer = function () {
             track.samples = mp4Samples;
             track.sequenceNumber++;
 
-            var moofbox = _mp4Generator2.default.moof(track, firstDts);
+            var moofbox = null;
+
+            if (mpegRawTrack) {
+                // Generate empty buffer, because useless for raw mpeg
+                moofbox = new Uint8Array();
+            } else {
+                // Generate moof for fmp4 segment
+                moofbox = _mp4Generator2.default.moof(track, firstDts);
+            }
+
             track.samples = [];
             track.length = 0;
 
-            this._onMediaSegment('audio', {
+            var segment = {
                 type: 'audio',
                 data: this._mergeBoxes(moofbox, mdatbox).buffer,
                 sampleCount: mp4Samples.length,
                 info: info
-            });
+            };
+
+            if (mpegRawTrack && firstSegmentAfterSeek) {
+                // For MPEG audio stream in MSE, if seeking occurred, before appending new buffer
+                // We need explicitly set timestampOffset to the desired point in timeline for mpeg SourceBuffer.
+                segment.timestampOffset = firstDts;
+            }
+
+            this._onMediaSegment('audio', segment);
         }
     }, {
         key: '_generateSilentAudio',
@@ -10500,7 +10789,7 @@ function detect() {
 
     var ua = self.navigator.userAgent.toLowerCase();
 
-    var match = /(edge)\/([\w.]+)/.exec(ua) || /(opr)[\/]([\w.]+)/.exec(ua) || /(chrome)[ \/]([\w.]+)/.exec(ua) || /(iemobile)[\/]([\w.]+)/.exec(ua) || /(version)(applewebkit)[ \/]([\w.]+).*(safari)[ \/]([\w.]+)/.exec(ua) || /(webkit)[ \/]([\w.]+).*(version)[ \/]([\w.]+).*(safari)[ \/]([\w.]+)/.exec(ua) || /(webkit)[ \/]([\w.]+)/.exec(ua) || /(opera)(?:.*version|)[ \/]([\w.]+)/.exec(ua) || /(msie) ([\w.]+)/.exec(ua) || ua.indexOf('trident') >= 0 && /(rv)(?::| )([\w.]+)/.exec(ua) || ua.indexOf('compatible') < 0 && /(mozilla)(?:.*? rv:([\w.]+)|)/.exec(ua) || [];
+    var match = /(edge)\/([\w.]+)/.exec(ua) || /(opr)[\/]([\w.]+)/.exec(ua) || /(chrome)[ \/]([\w.]+)/.exec(ua) || /(iemobile)[\/]([\w.]+)/.exec(ua) || /(version)(applewebkit)[ \/]([\w.]+).*(safari)[ \/]([\w.]+)/.exec(ua) || /(webkit)[ \/]([\w.]+).*(version)[ \/]([\w.]+).*(safari)[ \/]([\w.]+)/.exec(ua) || /(webkit)[ \/]([\w.]+)/.exec(ua) || /(opera)(?:.*version|)[ \/]([\w.]+)/.exec(ua) || /(msie) ([\w.]+)/.exec(ua) || ua.indexOf('trident') >= 0 && /(rv)(?::| )([\w.]+)/.exec(ua) || ua.indexOf('compatible') < 0 && /(firefox)[ \/]([\w.]+)/.exec(ua) || [];
 
     var platform_match = /(ipad)/.exec(ua) || /(ipod)/.exec(ua) || /(windows phone)/.exec(ua) || /(iphone)/.exec(ua) || /(kindle)/.exec(ua) || /(android)/.exec(ua) || /(windows)/.exec(ua) || /(mac)/.exec(ua) || /(linux)/.exec(ua) || /(cros)/.exec(ua) || [];
 
@@ -11169,6 +11458,5 @@ exports.default = decodeUTF8;
 
 },{}]},{},[21])(21)
 });
-
 
 //# sourceMappingURL=flv.js.map
