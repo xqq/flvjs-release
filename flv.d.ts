@@ -32,6 +32,9 @@ declare namespace FlvJs {
         cors?: boolean,
         withCredentials?: boolean,
 
+        hasAudio?: boolean,
+        hasVideo?: boolean,
+
         duration?: number;
         filesize?: number;
         url?: string;
@@ -59,7 +62,8 @@ declare namespace FlvJs {
         seekParamEnd?: string,
         rangeLoadZeroStart?: boolean,
         customSeekHandler?: any,
-        reuseRedirectedURL?: boolean
+        reuseRedirectedURL?: boolean,
+        referrerPolicy?: string
     }
 
     interface FeatureList {

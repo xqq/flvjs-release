@@ -1776,6 +1776,7 @@ var defaultConfig = exports.defaultConfig = {
     rangeLoadZeroStart: false,
     customSeekHandler: undefined,
     reuseRedirectedURL: false
+    // referrerPolicy: leave as unspecified
 };
 
 function createDefaultConfig() {
@@ -3253,6 +3254,10 @@ var TransmuxingController = function () {
             // params needed by IOController
             segment.cors = mediaDataSource.cors;
             segment.withCredentials = mediaDataSource.withCredentials;
+            // referrer policy control, if exist
+            if (config.referrerPolicy) {
+                segment.referrerPolicy = config.referrerPolicy;
+            }
         });
 
         if (!isNaN(totalDuration) && this._mediaDataSource.duration !== totalDuration) {
@@ -3455,6 +3460,13 @@ var TransmuxingController = function () {
                 if (mds.duration != undefined && !isNaN(mds.duration)) {
                     this._demuxer.overridedDuration = mds.duration;
                 }
+                if (typeof mds.hasAudio === 'boolean') {
+                    this._demuxer.overridedHasAudio = mds.hasAudio;
+                }
+                if (typeof mds.hasVideo === 'boolean') {
+                    this._demuxer.overridedHasVideo = mds.hasVideo;
+                }
+
                 this._demuxer.timestampBase = mds.segments[this._currentSegmentIndex].timestampBase;
 
                 this._demuxer.onError = this._onDemuxException.bind(this);
@@ -4406,6 +4418,9 @@ var FLVDemuxer = function () {
         this._hasAudio = probeData.hasAudioTrack;
         this._hasVideo = probeData.hasVideoTrack;
 
+        this._hasAudioFlagOverrided = false;
+        this._hasVideoFlagOverrided = false;
+
         this._audioInitialMetadataDispatched = false;
         this._videoInitialMetadataDispatched = false;
 
@@ -4514,7 +4529,6 @@ var FLVDemuxer = function () {
                 if (chunk.byteLength > 13) {
                     var probeData = FLVDemuxer.probe(chunk);
                     offset = probeData.dataOffset;
-                    byteStart = probeData.dataOffset;
                 } else {
                     return 0;
                 }
@@ -4523,7 +4537,7 @@ var FLVDemuxer = function () {
             if (this._firstParse) {
                 // handle PreviousTagSize0 before Tag1
                 this._firstParse = false;
-                if (byteStart !== this._dataOffset) {
+                if (byteStart + offset !== this._dataOffset) {
                     _logger2.default.w(this.TAG, 'First time parsing but chunk byteStart invalid!');
                 }
 
@@ -4612,6 +4626,10 @@ var FLVDemuxer = function () {
             var scriptData = _amfParser2.default.parseScriptData(arrayBuffer, dataOffset, dataSize);
 
             if (scriptData.hasOwnProperty('onMetaData')) {
+                if (scriptData.onMetaData == null || _typeof(scriptData.onMetaData) !== 'object') {
+                    _logger2.default.w(this.TAG, 'Invalid onMetaData structure!');
+                    return;
+                }
                 if (this._metadata) {
                     _logger2.default.w(this.TAG, 'Found another onMetaData tag!');
                 }
@@ -4620,13 +4638,17 @@ var FLVDemuxer = function () {
 
                 if (typeof onMetaData.hasAudio === 'boolean') {
                     // hasAudio
-                    this._hasAudio = onMetaData.hasAudio;
-                    this._mediaInfo.hasAudio = this._hasAudio;
+                    if (this._hasAudioFlagOverrided === false) {
+                        this._hasAudio = onMetaData.hasAudio;
+                        this._mediaInfo.hasAudio = this._hasAudio;
+                    }
                 }
                 if (typeof onMetaData.hasVideo === 'boolean') {
                     // hasVideo
-                    this._hasVideo = onMetaData.hasVideo;
-                    this._mediaInfo.hasVideo = this._hasVideo;
+                    if (this._hasVideoFlagOverrided === false) {
+                        this._hasVideo = onMetaData.hasVideo;
+                        this._mediaInfo.hasVideo = this._hasVideo;
+                    }
                 }
                 if (typeof onMetaData.audiodatarate === 'number') {
                     // audiodatarate
@@ -4709,6 +4731,12 @@ var FLVDemuxer = function () {
                 return;
             }
 
+            if (this._hasAudioFlagOverrided === true && this._hasAudio === false) {
+                // If hasAudio: false indicated explicitly in MediaDataSource,
+                // Ignore all the audio packets
+                return;
+            }
+
             var le = this._littleEndian;
             var v = new DataView(arrayBuffer, dataOffset, dataSize);
 
@@ -4737,7 +4765,7 @@ var FLVDemuxer = function () {
             var track = this._audioTrack;
 
             if (!meta) {
-                if (this._hasAudio === false) {
+                if (this._hasAudio === false && this._hasAudioFlagOverrided === false) {
                     this._hasAudio = true;
                     this._mediaInfo.hasAudio = true;
                 }
@@ -4817,7 +4845,7 @@ var FLVDemuxer = function () {
                         return;
                     }
                     meta.audioSampleRate = _misc.samplingRate;
-                    meta.channelConfig = _misc.channelCount;
+                    meta.channelCount = _misc.channelCount;
                     meta.codec = _misc.codec;
                     // The decode result of an mp3 sample is 1152 PCM samples
                     meta.refSampleDuration = Math.floor(1152 / meta.audioSampleRate * meta.timescale);
@@ -5070,6 +5098,12 @@ var FLVDemuxer = function () {
                 return;
             }
 
+            if (this._hasVideoFlagOverrided === true && this._hasVideo === false) {
+                // If hasVideo: false indicated explicitly in MediaDataSource,
+                // Ignore all the video packets
+                return;
+            }
+
             var spec = new Uint8Array(arrayBuffer, dataOffset, dataSize)[0];
 
             var frameType = (spec & 240) >>> 4;
@@ -5123,7 +5157,7 @@ var FLVDemuxer = function () {
             var v = new DataView(arrayBuffer, dataOffset, dataSize);
 
             if (!meta) {
-                if (this._hasVideo === false) {
+                if (this._hasVideo === false && this._hasVideoFlagOverrided === false) {
                     this._hasVideo = true;
                     this._mediaInfo.hasVideo = true;
                 }
@@ -5401,6 +5435,26 @@ var FLVDemuxer = function () {
             this._durationOverrided = true;
             this._duration = duration;
             this._mediaInfo.duration = duration;
+        }
+
+        // Force-override audio track present flag, boolean
+
+    }, {
+        key: 'overridedHasAudio',
+        set: function set(hasAudio) {
+            this._hasAudioFlagOverrided = true;
+            this._hasAudio = hasAudio;
+            this._mediaInfo.hasAudio = hasAudio;
+        }
+
+        // Force-override video track present flag, boolean
+
+    }, {
+        key: 'overridedHasVideo',
+        set: function set(hasVideo) {
+            this._hasVideoFlagOverrided = true;
+            this._hasVideo = hasVideo;
+            this._mediaInfo.hasVideo = hasVideo;
         }
     }], [{
         key: 'probe',
@@ -6003,7 +6057,10 @@ var FetchStreamLoader = function (_BaseLoader) {
                 method: 'GET',
                 headers: headers,
                 mode: 'cors',
-                cache: 'default'
+                cache: 'default',
+                // The default policy of Fetch API in the whatwg standard
+                // Safari incorrectly indicates 'no-referrer' as default policy, fuck it
+                referrerPolicy: 'no-referrer-when-downgrade'
             };
 
             // cors is enabled by default
@@ -6015,6 +6072,11 @@ var FetchStreamLoader = function (_BaseLoader) {
             // withCredentials is disabled by default
             if (dataSource.withCredentials) {
                 params.credentials = 'include';
+            }
+
+            // referrerPolicy from config
+            if (dataSource.referrerPolicy) {
+                params.referrerPolicy = dataSource.referrerPolicy;
             }
 
             this._status = _loader.LoaderStatus.kConnecting;
@@ -10332,6 +10394,10 @@ var MP4Remuxer = function () {
     }, {
         key: '_remuxAudio',
         value: function _remuxAudio(audioTrack) {
+            if (this._audioMeta == null) {
+                return;
+            }
+
             var track = audioTrack;
             var samples = track.samples;
             var dtsCorrection = undefined;
@@ -10566,6 +10632,10 @@ var MP4Remuxer = function () {
     }, {
         key: '_remuxVideo',
         value: function _remuxVideo(videoTrack) {
+            if (this._videoMeta == null) {
+                return;
+            }
+
             var track = videoTrack;
             var samples = track.samples;
             var dtsCorrection = undefined;
