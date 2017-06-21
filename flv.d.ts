@@ -54,6 +54,10 @@ declare namespace FlvJs {
         lazyLoadRecoverDuration?: number,
         deferLoadAfterSourceOpen?: boolean,
 
+        autoCleanupSourceBuffer?: boolean,
+        autoCleanupMaxBackwardDuration?: number,
+        autoCleanupMinBackwardDuration?: number,
+
         statisticsInfoReportInterval?: number,
 
         accurateSeek?: boolean,
@@ -89,7 +93,7 @@ declare namespace FlvJs {
         detachMediaElement(): void;
         load(): void;
         unload(): void;
-        play(): void;
+        play(): Promise<void>;
         pause(): void;
         type: string;
         buffered: TimeRanges;
