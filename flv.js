@@ -6017,7 +6017,7 @@ Object.defineProperty(flvjs, 'version', {
     enumerable: true,
     get: function get() {
         // replaced by browserify-versionify transform
-        return '1.3.2';
+        return '1.3.3';
     }
 });
 
@@ -6259,7 +6259,7 @@ var FetchStreamLoader = function (_BaseLoader) {
                         _this3._onDataArrival(chunk, byteStart, _this3._receivedLength);
                     }
 
-                    return _this3._pump(reader);
+                    _this3._pump(reader);
                 }
             }).catch(function (e) {
                 if (e.code === 11 && _browser2.default.msedge) {
