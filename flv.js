@@ -3615,6 +3615,7 @@ var TransmuxingController = function () {
                 this._internalAbort();
                 this._loadSegment(nextSegmentIndex);
             } else {
+                this._remuxer.flushStashedSamples();
                 this._emitter.emit(_transmuxingEvents2.default.LOADING_COMPLETE);
                 this._disableStatisticsReporter();
             }
@@ -4931,7 +4932,7 @@ var FLVDemuxer = function () {
                 } else if (aacData.packetType === 1) {
                     // AAC raw frame data
                     var dts = this._timestampBase + tagTimestamp;
-                    var aacSample = { unit: aacData.data, dts: dts, pts: dts };
+                    var aacSample = { unit: aacData.data, length: aacData.data.byteLength, dts: dts, pts: dts };
                     track.samples.push(aacSample);
                     track.length += aacData.data.length;
                 } else {
@@ -4979,7 +4980,7 @@ var FLVDemuxer = function () {
                     return;
                 }
                 var _dts = this._timestampBase + tagTimestamp;
-                var mp3Sample = { unit: data, dts: _dts, pts: _dts };
+                var mp3Sample = { unit: data, length: data.byteLength, dts: _dts, pts: _dts };
                 track.samples.push(mp3Sample);
                 track.length += data.length;
             }
@@ -6017,7 +6018,7 @@ Object.defineProperty(flvjs, 'version', {
     enumerable: true,
     get: function get() {
         // replaced by browserify-versionify transform
-        return '1.3.3';
+        return '1.3.4';
     }
 });
 
@@ -10399,6 +10400,8 @@ var MP4Remuxer = function () {
         this._videoDtsBase = Infinity;
         this._audioNextDts = undefined;
         this._videoNextDts = undefined;
+        this._audioStashedLastSample = null;
+        this._videoStashedLastSample = null;
 
         this._audioMeta = null;
         this._videoMeta = null;
@@ -10462,6 +10465,8 @@ var MP4Remuxer = function () {
     }, {
         key: 'seek',
         value: function seek(originalDts) {
+            this._audioStashedLastSample = null;
+            this._videoStashedLastSample = null;
             this._videoSegmentInfoList.clear();
             this._audioSegmentInfoList.clear();
         }
@@ -10533,6 +10538,33 @@ var MP4Remuxer = function () {
             this._dtsBaseInited = true;
         }
     }, {
+        key: 'flushStashedSamples',
+        value: function flushStashedSamples() {
+            var videoSample = this._videoStashedLastSample;
+            var audioSample = this._audioStashedLastSample;
+
+            var videoTrack = {
+                type: 'video',
+                id: 1,
+                sequenceNumber: 0,
+                samples: [videoSample],
+                length: videoSample.length
+            };
+
+            var audioTrack = {
+                type: 'audio',
+                id: 2,
+                sequenceNumber: 0,
+                samples: [audioSample],
+                length: audioSample.length
+            };
+
+            this._videoStashedLastSample = null;
+            this._audioStashedLastSample = null;
+
+            this.remux(audioTrack, videoTrack);
+        }
+    }, {
         key: '_remuxAudio',
         value: function _remuxAudio(audioTrack) {
             if (this._audioMeta == null) {
@@ -10571,6 +10603,27 @@ var MP4Remuxer = function () {
                 mdatBytes = 8 + track.length;
             }
 
+            var lastSample = null;
+
+            // Pop the lastSample and waiting for stash
+            if (samples.length > 1) {
+                lastSample = samples.pop();
+                mdatBytes -= lastSample.length;
+            }
+
+            // Insert [stashed lastSample in the previous batch] to the front
+            if (this._audioStashedLastSample != null) {
+                var sample = this._audioStashedLastSample;
+                this._audioStashedLastSample = null;
+                samples.unshift(sample);
+                mdatBytes += sample.length;
+            }
+
+            // Stash the lastSample of current batch, waiting for next batch
+            if (lastSample != null) {
+                this._audioStashedLastSample = lastSample;
+            }
+
             var firstSampleOriginalDts = samples[0].dts - this._dtsBase;
 
             // calculate dtsCorrection
@@ -10586,13 +10639,13 @@ var MP4Remuxer = function () {
                         }
                     }
                 } else {
-                    var lastSample = this._audioSegmentInfoList.getLastSampleBefore(firstSampleOriginalDts);
-                    if (lastSample != null) {
-                        var distance = firstSampleOriginalDts - (lastSample.originalDts + lastSample.duration);
+                    var _lastSample = this._audioSegmentInfoList.getLastSampleBefore(firstSampleOriginalDts);
+                    if (_lastSample != null) {
+                        var distance = firstSampleOriginalDts - (_lastSample.originalDts + _lastSample.duration);
                         if (distance <= 3) {
                             distance = 0;
                         }
-                        var expectedDts = lastSample.dts + lastSample.duration + distance;
+                        var expectedDts = _lastSample.dts + _lastSample.duration + distance;
                         dtsCorrection = firstSampleOriginalDts - expectedDts;
                     } else {
                         // lastSample == null, cannot found
@@ -10623,9 +10676,9 @@ var MP4Remuxer = function () {
 
             // Correct dts for each sample, and calculate sample duration. Then output to mp4Samples
             for (var i = 0; i < samples.length; i++) {
-                var sample = samples[i];
-                var unit = sample.unit;
-                var originalDts = sample.dts - this._dtsBase;
+                var _sample = samples[i];
+                var unit = _sample.unit;
+                var originalDts = _sample.dts - this._dtsBase;
                 var _dts = originalDts - dtsCorrection;
 
                 if (firstDts === -1) {
@@ -10639,7 +10692,11 @@ var MP4Remuxer = function () {
                     sampleDuration = nextDts - _dts;
                 } else {
                     // the last sample
-                    if (mp4Samples.length >= 1) {
+                    if (lastSample != null) {
+                        // use stashed sample's dts to calculate sample duration
+                        var _nextDts = lastSample.dts - this._dtsBase - dtsCorrection;
+                        sampleDuration = _nextDts - _dts;
+                    } else if (mp4Samples.length >= 1) {
                         // use second last sample duration
                         sampleDuration = mp4Samples[mp4Samples.length - 1].duration;
                     } else {
@@ -10712,8 +10769,8 @@ var MP4Remuxer = function () {
                     dts: _dts,
                     pts: _dts,
                     cts: 0,
-                    unit: sample.unit,
-                    size: sample.unit.byteLength,
+                    unit: _sample.unit,
+                    size: _sample.unit.byteLength,
                     duration: sampleDuration,
                     originalDts: originalDts,
                     flags: {
@@ -10822,13 +10879,29 @@ var MP4Remuxer = function () {
             }
 
             var offset = 8;
+            var mdatbox = null;
             var mdatBytes = 8 + videoTrack.length;
-            var mdatbox = new Uint8Array(mdatBytes);
-            mdatbox[0] = mdatBytes >>> 24 & 0xFF;
-            mdatbox[1] = mdatBytes >>> 16 & 0xFF;
-            mdatbox[2] = mdatBytes >>> 8 & 0xFF;
-            mdatbox[3] = mdatBytes & 0xFF;
-            mdatbox.set(_mp4Generator2.default.types.mdat, 4);
+
+            var lastSample = null;
+
+            // Pop the lastSample and waiting for stash
+            if (samples.length > 1) {
+                lastSample = samples.pop();
+                mdatBytes -= lastSample.length;
+            }
+
+            // Insert [stashed lastSample in the previous batch] to the front
+            if (this._videoStashedLastSample != null) {
+                var sample = this._videoStashedLastSample;
+                this._videoStashedLastSample = null;
+                samples.unshift(sample);
+                mdatBytes += sample.length;
+            }
+
+            // Stash the lastSample of current batch, waiting for next batch
+            if (lastSample != null) {
+                this._videoStashedLastSample = lastSample;
+            }
 
             var firstSampleOriginalDts = samples[0].dts - this._dtsBase;
 
@@ -10840,13 +10913,13 @@ var MP4Remuxer = function () {
                 if (this._videoSegmentInfoList.isEmpty()) {
                     dtsCorrection = 0;
                 } else {
-                    var lastSample = this._videoSegmentInfoList.getLastSampleBefore(firstSampleOriginalDts);
-                    if (lastSample != null) {
-                        var distance = firstSampleOriginalDts - (lastSample.originalDts + lastSample.duration);
+                    var _lastSample2 = this._videoSegmentInfoList.getLastSampleBefore(firstSampleOriginalDts);
+                    if (_lastSample2 != null) {
+                        var distance = firstSampleOriginalDts - (_lastSample2.originalDts + _lastSample2.duration);
                         if (distance <= 3) {
                             distance = 0;
                         }
-                        var expectedDts = lastSample.dts + lastSample.duration + distance;
+                        var expectedDts = _lastSample2.dts + _lastSample2.duration + distance;
                         dtsCorrection = firstSampleOriginalDts - expectedDts;
                     } else {
                         // lastSample == null, cannot found
@@ -10860,11 +10933,11 @@ var MP4Remuxer = function () {
 
             // Correct dts for each sample, and calculate sample duration. Then output to mp4Samples
             for (var i = 0; i < samples.length; i++) {
-                var sample = samples[i];
-                var originalDts = sample.dts - this._dtsBase;
-                var isKeyframe = sample.isKeyframe;
+                var _sample2 = samples[i];
+                var originalDts = _sample2.dts - this._dtsBase;
+                var isKeyframe = _sample2.isKeyframe;
                 var dts = originalDts - dtsCorrection;
-                var cts = sample.cts;
+                var cts = _sample2.cts;
                 var pts = dts + cts;
 
                 if (firstDts === -1) {
@@ -10879,7 +10952,11 @@ var MP4Remuxer = function () {
                     sampleDuration = nextDts - dts;
                 } else {
                     // the last sample
-                    if (mp4Samples.length >= 1) {
+                    if (lastSample != null) {
+                        // use stashed sample's dts to calculate sample duration
+                        var _nextDts2 = lastSample.dts - this._dtsBase - dtsCorrection;
+                        sampleDuration = _nextDts2 - dts;
+                    } else if (mp4Samples.length >= 1) {
                         // use second last sample duration
                         sampleDuration = mp4Samples[mp4Samples.length - 1].duration;
                     } else {
@@ -10889,8 +10966,8 @@ var MP4Remuxer = function () {
                 }
 
                 if (isKeyframe) {
-                    var syncPoint = new _mediaSegmentInfo.SampleInfo(dts, pts, sampleDuration, sample.dts, true);
-                    syncPoint.fileposition = sample.fileposition;
+                    var syncPoint = new _mediaSegmentInfo.SampleInfo(dts, pts, sampleDuration, _sample2.dts, true);
+                    syncPoint.fileposition = _sample2.fileposition;
                     info.appendSyncPoint(syncPoint);
                 }
 
@@ -10898,8 +10975,8 @@ var MP4Remuxer = function () {
                     dts: dts,
                     pts: pts,
                     cts: cts,
-                    units: sample.units,
-                    size: sample.length,
+                    units: _sample2.units,
+                    size: _sample2.length,
                     isKeyframe: isKeyframe,
                     duration: sampleDuration,
                     originalDts: originalDts,
@@ -10912,6 +10989,14 @@ var MP4Remuxer = function () {
                     }
                 });
             }
+
+            // allocate mdatbox
+            mdatbox = new Uint8Array(mdatBytes);
+            mdatbox[0] = mdatBytes >>> 24 & 0xFF;
+            mdatbox[1] = mdatBytes >>> 16 & 0xFF;
+            mdatbox[2] = mdatBytes >>> 8 & 0xFF;
+            mdatbox[3] = mdatBytes & 0xFF;
+            mdatbox.set(_mp4Generator2.default.types.mdat, 4);
 
             // Write samples into mdatbox
             for (var _i2 = 0; _i2 < mp4Samples.length; _i2++) {
