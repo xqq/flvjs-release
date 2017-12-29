@@ -1944,6 +1944,7 @@ var MediaInfo = function () {
         this.fps = null;
         this.profile = null;
         this.level = null;
+        this.refFrames = null;
         this.chromaFormat = null;
         this.sarNum = null;
         this.sarDen = null;
@@ -1960,7 +1961,7 @@ var MediaInfo = function () {
         value: function isComplete() {
             var audioInfoComplete = this.hasAudio === false || this.hasAudio === true && this.audioCodec != null && this.audioSampleRate != null && this.audioChannelCount != null;
 
-            var videoInfoComplete = this.hasVideo === false || this.hasVideo === true && this.videoCodec != null && this.width != null && this.height != null && this.fps != null && this.profile != null && this.level != null && this.chromaFormat != null && this.sarNum != null && this.sarDen != null;
+            var videoInfoComplete = this.hasVideo === false || this.hasVideo === true && this.videoCodec != null && this.width != null && this.height != null && this.fps != null && this.profile != null && this.level != null && this.refFrames != null && this.chromaFormat != null && this.sarNum != null && this.sarDen != null;
 
             // keyframesIndex may not be present
             return this.mimeType != null && this.duration != null && this.metadata != null && this.hasKeyframesIndex != null && audioInfoComplete && videoInfoComplete;
@@ -5232,7 +5233,8 @@ var FLVDemuxer = function () {
             var v = new DataView(arrayBuffer, dataOffset, dataSize);
 
             var packetType = v.getUint8(0);
-            var cts = v.getUint32(0, !le) & 0x00FFFFFF;
+            var cts_unsigned = v.getUint32(0, !le) & 0x00FFFFFF;
+            var cts = cts_unsigned << 8 >> 8; // convert to 24-bit signed int
 
             if (packetType === 0) {
                 // AVCDecoderConfigurationRecord
@@ -5359,6 +5361,7 @@ var FLVDemuxer = function () {
                 mi.fps = meta.frameRate.fps;
                 mi.profile = meta.profile;
                 mi.level = meta.level;
+                mi.refFrames = config.ref_frames;
                 mi.chromaFormat = config.chroma_format_string;
                 mi.sarNum = meta.sarRatio.width;
                 mi.sarDen = meta.sarRatio.height;
@@ -5713,7 +5716,7 @@ var SPSParser = function () {
                     gb.readSEG(); // offset_for_ref_frame
                 }
             }
-            gb.readUEG(); // max_num_ref_frames
+            var ref_frames = gb.readUEG(); // max_num_ref_frames
             gb.readBits(1); // gaps_in_frame_num_value_allowed_flag
 
             var pic_width_in_mbs_minus1 = gb.readUEG();
@@ -5823,6 +5826,7 @@ var SPSParser = function () {
                 profile_string: profile_string, // baseline, high, high10, ...
                 level_string: level_string, // 3, 3.1, 4, 4.1, 5, 5.1, ...
                 bit_depth: bit_depth, // 8bit, 10bit, ...
+                ref_frames: ref_frames,
                 chroma_format: chroma_format, // 4:2:0, 4:2:2, ...
                 chroma_format_string: SPSParser.getChromaFormatString(chroma_format),
 
@@ -6018,7 +6022,7 @@ Object.defineProperty(flvjs, 'version', {
     enumerable: true,
     get: function get() {
         // replaced by browserify-versionify transform
-        return '1.3.4';
+        return '1.4.0';
     }
 });
 
@@ -7799,7 +7803,7 @@ var MozChunkedLoader = function (_BaseLoader) {
             // cors is auto detected and enabled by xhr
 
             // withCredentials is disabled by default
-            if (dataSource.withCredentials && xhr['withCredentials']) {
+            if (dataSource.withCredentials) {
                 xhr.withCredentials = true;
             }
 
@@ -8447,7 +8451,7 @@ var RangeLoader = function (_BaseLoader) {
             xhr.onload = this._onLoad.bind(this);
             xhr.onerror = this._onXhrError.bind(this);
 
-            if (dataSource.withCredentials && xhr['withCredentials']) {
+            if (dataSource.withCredentials) {
                 xhr.withCredentials = true;
             }
 
@@ -10547,26 +10551,37 @@ var MP4Remuxer = function () {
                 type: 'video',
                 id: 1,
                 sequenceNumber: 0,
-                samples: [videoSample],
-                length: videoSample.length
+                samples: [],
+                length: 0
             };
+
+            if (videoSample != null) {
+                videoTrack.samples.push(videoSample);
+                videoTrack.length = videoSample.length;
+            }
 
             var audioTrack = {
                 type: 'audio',
                 id: 2,
                 sequenceNumber: 0,
-                samples: [audioSample],
-                length: audioSample.length
+                samples: [],
+                length: 0
             };
+
+            if (audioSample != null) {
+                audioTrack.samples.push(audioSample);
+                audioTrack.length = audioSample.length;
+            }
 
             this._videoStashedLastSample = null;
             this._audioStashedLastSample = null;
 
-            this.remux(audioTrack, videoTrack);
+            this._remuxVideo(videoTrack, true);
+            this._remuxAudio(audioTrack, true);
         }
     }, {
         key: '_remuxAudio',
-        value: function _remuxAudio(audioTrack) {
+        value: function _remuxAudio(audioTrack, force) {
             if (this._audioMeta == null) {
                 return;
             }
@@ -10587,6 +10602,11 @@ var MP4Remuxer = function () {
             if (!samples || samples.length === 0) {
                 return;
             }
+            if (samples.length === 1 && !force) {
+                // If [sample count in current batch] === 1 && (force != true)
+                // Ignore and keep in demuxer's queue
+                return;
+            } // else if (force === true) do remux
 
             var offset = 0;
             var mdatbox = null;
@@ -10861,7 +10881,7 @@ var MP4Remuxer = function () {
         }
     }, {
         key: '_remuxVideo',
-        value: function _remuxVideo(videoTrack) {
+        value: function _remuxVideo(videoTrack, force) {
             if (this._videoMeta == null) {
                 return;
             }
@@ -10877,6 +10897,11 @@ var MP4Remuxer = function () {
             if (!samples || samples.length === 0) {
                 return;
             }
+            if (samples.length === 1 && !force) {
+                // If [sample count in current batch] === 1 && (force != true)
+                // Ignore and keep in demuxer's queue
+                return;
+            } // else if (force === true) do remux
 
             var offset = 8;
             var mdatbox = null;
