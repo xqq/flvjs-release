@@ -6023,7 +6023,7 @@ Object.defineProperty(flvjs, 'version', {
     enumerable: true,
     get: function get() {
         // replaced by browserify-versionify transform
-        return '1.4.0';
+        return '1.4.1';
     }
 });
 
