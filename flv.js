@@ -6023,7 +6023,7 @@ Object.defineProperty(flvjs, 'version', {
     enumerable: true,
     get: function get() {
         // replaced by browserify-versionify transform
-        return '1.4.1';
+        return '1.4.2';
     }
 });
 
@@ -6244,9 +6244,23 @@ var FetchStreamLoader = function (_BaseLoader) {
             // ReadableStreamReader
             return reader.read().then(function (result) {
                 if (result.done) {
-                    _this3._status = _loader.LoaderStatus.kComplete;
-                    if (_this3._onComplete) {
-                        _this3._onComplete(_this3._range.from, _this3._range.from + _this3._receivedLength - 1);
+                    // First check received length
+                    if (_this3._contentLength !== null && _this3._receivedLength < _this3._contentLength) {
+                        // Report Early-EOF
+                        _this3._status = _loader.LoaderStatus.kError;
+                        var type = _loader.LoaderErrors.EARLY_EOF;
+                        var info = { code: -1, msg: 'Fetch stream meet Early-EOF' };
+                        if (_this3._onError) {
+                            _this3._onError(type, info);
+                        } else {
+                            throw new _exception.RuntimeException(info.msg);
+                        }
+                    } else {
+                        // OK. Download complete
+                        _this3._status = _loader.LoaderStatus.kComplete;
+                        if (_this3._onComplete) {
+                            _this3._onComplete(_this3._range.from, _this3._range.from + _this3._receivedLength - 1);
+                        }
                     }
                 } else {
                     if (_this3._requestAbort === true) {
